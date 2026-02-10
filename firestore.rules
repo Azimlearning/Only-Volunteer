@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+    match /aid_resources/{id} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
+    }
+    match /donation_drives/{id} {
+      allow read: if true;
+      allow create, update, delete: if isSignedIn();
+    }
+    match /volunteer_listings/{id} {
+      allow read: if true;
+      allow create, update, delete: if isSignedIn();
+    }
+    match /applications/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /attendances/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /e_certificates/{id} {
+      allow read: if true;
+      allow create: if isSignedIn();
+    }
+    match /alerts/{id} {
+      allow read: if true;
+      allow create, update, delete: if isSignedIn();
+    }
+    match /feed_posts/{id} {
+      allow read: if true;
+      allow create, update, delete: if isSignedIn();
+    }
+  }
+}

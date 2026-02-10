@@ -1,0 +1,8 @@
+{
+  "name": "OnlyVolunteer",
+  "short_name": "OnlyVolunteer",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0D47A1",
+  "theme_color": "#0D47A1"
+}

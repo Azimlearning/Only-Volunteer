@@ -1,0 +1,30 @@
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.iml
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Environment
+.env
+.env.local
+*.dart_tool
+
+# Local scripts (do not commit personal run scripts with API keys)
+run_local.ps1
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Generated
+lib/firebase_options.dart
