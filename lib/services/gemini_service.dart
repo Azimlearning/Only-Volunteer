@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../core/config.dart';
 import '../models/app_user.dart';
+import '../models/donation_drive.dart';
 import '../models/volunteer_listing.dart';
 
 class GeminiService {
@@ -11,13 +12,210 @@ class GeminiService {
   GenerativeModel? _model;
   ChatSession? _chatSession;
 
+  static List<SafetySetting> get _safetySettings => [
+        SafetySetting(HarmCategory.harassment, HarmBlockThreshold.medium),
+        SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.medium),
+        SafetySetting(HarmCategory.dangerousContent, HarmBlockThreshold.medium),
+        SafetySetting(HarmCategory.sexuallyExplicit, HarmBlockThreshold.medium),
+      ];
+
   GenerativeModel get model {
-    _model ??= GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
+    _model ??= GenerativeModel(
+      model: 'gemini-1.5-flash',
+      apiKey: _apiKey,
+      safetySettings: _safetySettings,
+      generationConfig: GenerationConfig(
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 1024,
+      ),
+    );
     return _model!;
   }
 
   void startChat() {
     _chatSession = model.startChat();
+  }
+
+  /// Starts a chat session with user context so replies can be personalized.
+  void startChatWithContext({
+    AppUser? user,
+    String? locationSummary,
+    List<String> recentActivitySummary = const [],
+    String? fallbackMessage,
+  }) {
+    final contextBlock = _buildContextBlock(
+      user: user,
+      locationSummary: locationSummary,
+      recentActivitySummary: recentActivitySummary,
+    );
+    if (contextBlock.isEmpty) {
+      startChat();
+      return;
+    }
+    final systemPrompt = '''
+You are the OnlyVolunteer concierge. You help users with: finding volunteer opportunities, donation drives, how to sign up, how to list activities, e-certificates, leaderboards, and flood/SOS alerts. Be brief and helpful (2-4 sentences). When suggesting activities or drives, you can say "Check the suggestions below" so the user sees the recommended cards.
+
+$contextBlock
+
+Guidelines: Be friendly and concise. Use the user's location and interests when relevant. For "Where can I help today?" suggest opportunities or drives. If you don't know something, suggest they browse Aid Finder, Donation Drives, or Opportunities in the app.''';
+    _chatSession = model.startChat(history: [Content.text(systemPrompt)]);
+  }
+
+  String _buildContextBlock({
+    AppUser? user,
+    String? locationSummary,
+    List<String> recentActivitySummary = const [],
+  }) {
+    final parts = <String>[];
+    if (user != null) {
+      parts.add('User profile: ${user.displayName ?? user.email}; role: ${user.role.name}.');
+      if (user.skills.isNotEmpty) parts.add('Skills: ${user.skills.join(", ")}.');
+      if (user.interests.isNotEmpty) parts.add('Interests: ${user.interests.join(", ")}.');
+      if (user.points > 0) parts.add('Points: ${user.points}.');
+    }
+    if (locationSummary != null && locationSummary.isNotEmpty) {
+      parts.add('Location: $locationSummary');
+    }
+    if (recentActivitySummary.isNotEmpty) {
+      parts.add('Recent activity: ${recentActivitySummary.join("; ")}');
+    }
+    if (parts.isEmpty) return '';
+    return 'Context:\n${parts.join("\n")}';
+  }
+
+  /// Context-aware one-off response (no session). Use for first message or when not using session.
+  Future<String> generateConciergeResponseWithContext({
+    AppUser? user,
+    String? locationSummary,
+    List<String> recentActivitySummary = const [],
+    required String userMessage,
+    String? fallbackMessage,
+  }) async {
+    if (_apiKey.isEmpty) {
+      return 'OnlyVolunteer connects volunteers with NGOs and donation drives. Sign in to browse opportunities, get matched by skills, and earn e-certificates. Set GEMINI_API_KEY for full AI help.';
+    }
+    final contextBlock = _buildContextBlock(
+      user: user,
+      locationSummary: locationSummary,
+      recentActivitySummary: recentActivitySummary,
+    );
+    const basePrompt = '''
+You are the OnlyVolunteer concierge. You help users with: finding volunteer opportunities, donation drives, how to sign up, how to list activities, e-certificates, leaderboards, and flood/SOS alerts. Be brief and helpful (2-4 sentences).''';
+    final fullPrompt = contextBlock.isEmpty
+        ? '$basePrompt\n\nUser: $userMessage\nAssistant:'
+        : '$basePrompt\n\n$contextBlock\n\nUser: $userMessage\nAssistant:';
+    try {
+      final response = await model.generateContent([Content.text(fullPrompt)]);
+      final text = response.text?.trim();
+      if (text == null || text.isEmpty) {
+        return fallbackMessage ?? Config.chatbotFallbackMessage;
+      }
+      return text;
+    } catch (_) {
+      return fallbackMessage ?? Config.chatbotFallbackMessage;
+    }
+  }
+
+  /// Session-based chat (use after startChat or startChatWithContext). Returns reply or fallback on error.
+  Future<String> chat(String userMessage, {String? fallbackMessage}) async {
+    if (_apiKey.isEmpty) {
+      return 'OnlyVolunteer helps you find volunteer opportunities and donation drives. Add your GEMINI_API_KEY to enable the AI assistant.';
+    }
+    if (_chatSession == null) startChat();
+    try {
+      final response = await _chatSession!.sendMessage(Content.text(userMessage));
+      final text = response.text?.trim();
+      if (text == null || text.isEmpty) {
+        return fallbackMessage ?? Config.chatbotFallbackMessage;
+      }
+      return text;
+    } catch (_) {
+      return fallbackMessage ?? Config.chatbotFallbackMessage;
+    }
+  }
+
+  /// Returns a short list of recommended drives and opportunities for the user (IDs and titles).
+  /// [drives] and [listings] are fetched by the caller; this method ranks/filters them.
+  Future<List<Map<String, String>>> getConciergeRecommendations({
+    required AppUser user,
+    required List<DonationDrive> drives,
+    required List<VolunteerListing> listings,
+    String? locationSummary,
+    int limit = 5,
+  }) async {
+    if (drives.isEmpty && listings.isEmpty) return [];
+    if (_apiKey.isEmpty) {
+      final result = <Map<String, String>>[];
+      for (final d in drives.take(limit)) {
+        result.add({'type': 'drive', 'id': d.id, 'title': d.title});
+      }
+      for (final l in listings.take(limit - result.length)) {
+        result.add({'type': 'listing', 'id': l.id, 'title': l.title});
+      }
+      return result;
+    }
+    final drivesSummary = drives.take(15).map((d) => '${d.id}: ${d.title} (${d.location ?? "—"})').join('\n');
+    final listingsSummary = listings.take(15).map((l) => '${l.id}: ${l.title} (${l.location ?? "—"})').join('\n');
+    final prompt = '''
+You are a volunteer-opportunity recommender. User: ${user.displayName ?? user.email}. Skills: ${user.skills.join(", ")}. Interests: ${user.interests.join(", ")}.${locationSummary != null && locationSummary.isNotEmpty ? " Location: $locationSummary." : ""}
+
+Donation drives:
+$drivesSummary
+
+Volunteer opportunities:
+$listingsSummary
+
+Return a JSON array of exactly $limit items. Each item: {"type":"drive" or "listing","id":"<id>"}. Order: best match first. No other text. Example: [{"type":"drive","id":"abc"},{"type":"listing","id":"xyz"}]''';
+    try {
+      final response = await model.generateContent([Content.text(prompt)]);
+      final text = response.text?.trim() ?? '[]';
+      final cleaned = text.replaceAll(RegExp(r'[^\d\w\s,"\[\]:{}\-]'), '');
+      final decoded = jsonDecode(cleaned) as List<dynamic>?;
+      if (decoded == null) return _defaultRecommendations(drives, listings, limit);
+      final result = <Map<String, String>>[];
+      final addedIds = <String>{};
+      for (final e in decoded) {
+        if (result.length >= limit) break;
+        if (e is! Map) continue;
+        final type = e['type']?.toString();
+        final id = e['id']?.toString();
+        if (id == null || addedIds.contains(id)) continue;
+        if (type == 'drive') {
+          final d = drives.cast<DonationDrive?>().firstWhere((x) => x?.id == id, orElse: () => null);
+          if (d != null) {
+            result.add({'type': 'drive', 'id': d.id, 'title': d.title});
+            addedIds.add(id);
+          }
+        } else if (type == 'listing') {
+          final l = listings.cast<VolunteerListing?>().firstWhere((x) => x?.id == id, orElse: () => null);
+          if (l != null) {
+            result.add({'type': 'listing', 'id': l.id, 'title': l.title});
+            addedIds.add(id);
+          }
+        }
+      }
+      if (result.isEmpty) return _defaultRecommendations(drives, listings, limit);
+      return result;
+    } catch (_) {
+      return _defaultRecommendations(drives, listings, limit);
+    }
+  }
+
+  List<Map<String, String>> _defaultRecommendations(
+    List<DonationDrive> drives,
+    List<VolunteerListing> listings,
+    int limit,
+  ) {
+    final result = <Map<String, String>>[];
+    for (final d in drives.take(limit)) {
+      result.add({'type': 'drive', 'id': d.id, 'title': d.title});
+    }
+    for (final l in listings.take(limit - result.length)) {
+      result.add({'type': 'listing', 'id': l.id, 'title': l.title});
+    }
+    return result;
   }
 
   /// Smart Skill & Activity Matcher: returns ranked listing IDs or JSON.
@@ -70,32 +268,11 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
     }
   }
 
-  /// Universal Concierge Chatbot.
-  Future<String> chat(String userMessage) async {
-    if (_apiKey.isEmpty) {
-      return 'OnlyVolunteer helps you find volunteer opportunities and donation drives. Add your GEMINI_API_KEY to enable the AI assistant.';
-    }
-    if (_chatSession == null) startChat();
-    try {
-      final response = await _chatSession!.sendMessage(Content.text(userMessage));
-      return response.text?.trim() ?? 'I couldn\'t generate a response.';
-    } catch (e) {
-      return 'Sorry, something went wrong. Please try again.';
-    }
-  }
-
-  /// One-off concierge response (no session).
-  Future<String> generateConciergeResponse(String userMessage) async {
-    if (_apiKey.isEmpty) {
-      return 'OnlyVolunteer connects volunteers with NGOs and donation drives. Sign in to browse opportunities, get matched by skills, and earn e-certificates. Set GEMINI_API_KEY for full AI help.';
-    }
-    const systemContext = '''
-You are the OnlyVolunteer concierge. You help users with: finding volunteer opportunities, donation drives, how to sign up, how to list activities, e-certificates, leaderboards, and flood/SOS alerts. Be brief and helpful (2-4 sentences).''';
-    try {
-      final response = await model.generateContent([Content.text('$systemContext\n\nUser: $userMessage\nAssistant:')]);
-      return response.text?.trim() ?? 'I\'m not sure how to help with that. Try "How do I volunteer?" or "List a drive".';
-    } catch (_) {
-      return 'I\'m having trouble responding. Please try again.';
-    }
+  /// One-off concierge response (no session). Prefer chat() with startChatWithContext for multi-turn.
+  Future<String> generateConciergeResponse(String userMessage, {String? fallbackMessage}) async {
+    return generateConciergeResponseWithContext(
+      userMessage: userMessage,
+      fallbackMessage: fallbackMessage,
+    );
   }
 }

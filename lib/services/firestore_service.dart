@@ -7,6 +7,9 @@ import '../models/attendance.dart';
 import '../models/e_certificate.dart';
 import '../models/alert.dart';
 import '../models/feed_post.dart';
+import '../models/donation.dart';
+import '../models/feed_comment.dart';
+import '../core/config.dart';
 
 class FirestoreService {
   FirestoreService({FirebaseFirestore? firestore})
@@ -23,6 +26,9 @@ class FirestoreService {
   static const _alerts = 'alerts';
   static const _feedPosts = 'feed_posts';
   static const _applications = 'applications';
+  static const _donations = 'donations';
+  static const _feedComments = 'feed_comments';
+  static const _reports = 'reports';
 
   Future<AppUser?> getUser(String uid) async {
     final doc = await _db.collection(_users).doc(uid).get();
@@ -42,11 +48,14 @@ class FirestoreService {
     return _db.collection(_aidResources).orderBy('createdAt', descending: true).snapshots();
   }
 
-  Future<List<AidResource>> getAidResources({String? category}) async {
+  Future<List<AidResource>> getAidResources({String? category, String? urgency}) async {
     final snap = await _db.collection(_aidResources).orderBy('createdAt', descending: true).limit(100).get();
     var list = snap.docs.map((d) => AidResource.fromFirestore(d)).toList();
     if (category != null && category.isNotEmpty) {
       list = list.where((r) => r.category == category).toList();
+    }
+    if (urgency != null && urgency.isNotEmpty) {
+      list = list.where((r) => r.urgency.name == urgency).toList();
     }
     return list;
   }
@@ -59,9 +68,14 @@ class FirestoreService {
     return _db.collection(_donationDrives).orderBy('createdAt', descending: true).snapshots();
   }
 
-  Future<List<DonationDrive>> getDonationDrives() async {
-    final snap = await _db.collection(_donationDrives).orderBy('createdAt', descending: true).limit(50).get();
-    return snap.docs.map((d) => DonationDrive.fromFirestore(d)).toList();
+  Future<List<DonationDrive>> getDonationDrives({String? category}) async {
+    var query = _db.collection(_donationDrives).orderBy('createdAt', descending: true).limit(50);
+    final snap = await query.get();
+    var list = snap.docs.map((d) => DonationDrive.fromFirestore(d)).toList();
+    if (category != null && category.isNotEmpty) {
+      list = list.where((d) => d.category == category).toList();
+    }
+    return list;
   }
 
   Future<void> addDonationDrive(DonationDrive drive) async {
@@ -72,6 +86,16 @@ class FirestoreService {
     await _db.collection(_donationDrives).doc(driveId).update({'raisedAmount': FieldValue.increment(amount)});
   }
 
+  Future<void> addDonation(Donation donation) async {
+    await _db.collection(_donations).doc(donation.id).set(donation.toMap());
+    await updateUserPoints(donation.userId, Config.pointsPerDonationBonus);
+  }
+
+  Future<List<Donation>> getDonationsByUser(String userId) async {
+    final snap = await _db.collection(_donations).where('userId', isEqualTo: userId).orderBy('createdAt', descending: true).get();
+    return snap.docs.map((d) => Donation.fromFirestore(d)).toList();
+  }
+
   Stream<QuerySnapshot<Map<String, dynamic>>> volunteerListingsStream() {
     return _db.collection(_volunteerListings).orderBy('createdAt', descending: true).snapshots();
   }
@@ -79,6 +103,34 @@ class FirestoreService {
   Future<List<VolunteerListing>> getVolunteerListings() async {
     final snap = await _db.collection(_volunteerListings).orderBy('createdAt', descending: true).limit(50).get();
     return snap.docs.map((d) => VolunteerListing.fromFirestore(d)).toList();
+  }
+
+  /// Paginated volunteer listings. Returns list and last document for next page.
+  Future<({List<VolunteerListing> list, DocumentSnapshot? lastDoc})> getVolunteerListingsPaginated({
+    int limit = 20,
+    DocumentSnapshot? startAfter,
+  }) async {
+    var query = _db.collection(_volunteerListings).orderBy('createdAt', descending: true).limit(limit);
+    if (startAfter != null) query = query.startAfterDocument(startAfter);
+    final snap = await query.get();
+    final list = snap.docs.map((d) => VolunteerListing.fromFirestore(d)).toList();
+    final lastDoc = snap.docs.isEmpty ? null : snap.docs.last;
+    return (list: list, lastDoc: lastDoc);
+  }
+
+  static const _savedListings = 'saved_listings';
+
+  Future<List<String>> getSavedListingIds(String userId) async {
+    final snap = await _db.collection(_users).doc(userId).collection(_savedListings).get();
+    return snap.docs.map((d) => d.id).toList();
+  }
+
+  Future<void> addSavedListing(String userId, String listingId) async {
+    await _db.collection(_users).doc(userId).collection(_savedListings).doc(listingId).set({'savedAt': FieldValue.serverTimestamp()});
+  }
+
+  Future<void> removeSavedListing(String userId, String listingId) async {
+    await _db.collection(_users).doc(userId).collection(_savedListings).doc(listingId).delete();
   }
 
   Future<void> addVolunteerListing(VolunteerListing listing) async {
@@ -102,6 +154,10 @@ class FirestoreService {
 
   Future<void> addAttendance(Attendance attendance) async {
     await _db.collection(_attendances).doc(attendance.id).set(attendance.toMap());
+    if (attendance.verified && attendance.hours != null && attendance.hours! > 0) {
+      final points = (attendance.hours! * Config.pointsPerVolunteerHour).round();
+      await updateUserPoints(attendance.userId, points);
+    }
   }
 
   Future<void> addECertificate(ECertificate cert) async {
@@ -141,6 +197,25 @@ class FirestoreService {
     await _db.collection(_feedPosts).doc(postId).update({'likes': FieldValue.increment(1)});
   }
 
+  Future<List<FeedComment>> getCommentsForPost(String postId) async {
+    final snap = await _db.collection(_feedComments).where('postId', isEqualTo: postId).orderBy('createdAt', descending: false).get();
+    return snap.docs.map((d) => FeedComment.fromFirestore(d)).toList();
+  }
+
+  Future<void> addFeedComment(FeedComment comment) async {
+    await _db.collection(_feedComments).doc(comment.id).set(comment.toMap());
+    await _db.collection(_feedPosts).doc(comment.postId).update({'commentCount': FieldValue.increment(1)});
+  }
+
+  Future<void> reportPost(String postId, String userId, String reason) async {
+    await _db.collection(_reports).add({
+      'postId': postId,
+      'userId': userId,
+      'reason': reason,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<List<AppUser>> getLeaderboard({int limit = 20}) async {
     final snap = await _db.collection(_users).orderBy('points', descending: true).limit(limit).get();
     return snap.docs.map((d) => AppUser.fromFirestore(d)).toList();
@@ -151,11 +226,23 @@ class FirestoreService {
     final listingsSnap = await _db.collection(_volunteerListings).get();
     final drivesSnap = await _db.collection(_donationDrives).get();
     final certsSnap = await _db.collection(_eCertificates).get();
+    final attendancesSnap = await _db.collection(_attendances).get();
     return {
       'users': usersSnap.docs.length,
       'listings': listingsSnap.docs.length,
       'drives': drivesSnap.docs.length,
       'certificates': certsSnap.docs.length,
+      'attendances': attendancesSnap.docs.length,
     };
+  }
+
+  Future<double> getTotalDonations() async {
+    final snap = await _db.collection(_donations).get();
+    double total = 0;
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      total += (data['amount'] as num?)?.toDouble() ?? 0;
+    }
+    return total;
   }
 }

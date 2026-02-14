@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/donation_drive.dart';
+import '../../models/app_user.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 
 class CreateDriveScreen extends StatefulWidget {
@@ -17,8 +20,12 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
   final _descController = TextEditingController();
   final _goalController = TextEditingController();
   final _locationController = TextEditingController();
+  final _bannerUrlController = TextEditingController();
   final _firestore = FirestoreService();
   bool _saving = false;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String? _category;
 
   @override
   void dispose() {
@@ -26,7 +33,28 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
     _descController.dispose();
     _goalController.dispose();
     _locationController.dispose();
+    _bannerUrlController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickStartDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+    );
+    if (date != null) setState(() => _startDate = date);
+  }
+
+  Future<void> _pickEndDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _startDate?.add(const Duration(days: 30)) ?? DateTime.now().add(const Duration(days: 30)),
+      firstDate: _startDate ?? DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+    );
+    if (date != null) setState(() => _endDate = date);
   }
 
   Future<void> _submit() async {
@@ -53,6 +81,10 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
         goalAmount: goal,
         raisedAmount: 0,
         location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+        category: _category,
+        bannerUrl: _bannerUrlController.text.trim().isEmpty ? null : _bannerUrlController.text.trim(),
+        startDate: _startDate,
+        endDate: _endDate,
         createdAt: DateTime.now(),
       );
       await _firestore.addDonationDrive(drive);
@@ -69,6 +101,27 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthNotifier>();
+    final canCreate = auth.appUser?.role == UserRole.ngo || auth.appUser?.role == UserRole.admin;
+    if (!canCreate) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.info_outline, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text('Only organizers can create donation drives.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Text('Sign up as an Organizer to create drives, or browse and join existing drives.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
+              const SizedBox(height: 24),
+              FilledButton.icon(onPressed: () => context.go('/drives'), icon: const Icon(Icons.volunteer_activism), label: const Text('Browse drives')),
+            ],
+          ),
+        ),
+      );
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -83,6 +136,38 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
           TextField(controller: _goalController, decoration: const InputDecoration(labelText: 'Goal amount'), keyboardType: TextInputType.number),
           const SizedBox(height: 12),
           TextField(controller: _locationController, decoration: const InputDecoration(labelText: 'Location')),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _category,
+            decoration: const InputDecoration(labelText: 'Category'),
+            items: const [
+              DropdownMenuItem(value: 'disaster_relief', child: Text('Disaster relief')),
+              DropdownMenuItem(value: 'community_support', child: Text('Community support')),
+            ],
+            onChanged: (v) => setState(() => _category = v),
+          ),
+          const SizedBox(height: 12),
+          TextField(controller: _bannerUrlController, decoration: const InputDecoration(labelText: 'Banner image URL (optional)')),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickStartDate,
+                  icon: const Icon(Icons.calendar_today, size: 18),
+                  label: Text(_startDate != null ? _formatDate(_startDate!) : 'Start date'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickEndDate,
+                  icon: const Icon(Icons.calendar_today, size: 18),
+                  label: Text(_endDate != null ? _formatDate(_endDate!) : 'End date'),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 24),
           FilledButton(
             onPressed: _saving ? null : _submit,
@@ -92,4 +177,6 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
       ),
     );
   }
+
+  String _formatDate(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }

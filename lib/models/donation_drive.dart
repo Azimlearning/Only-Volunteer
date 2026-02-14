@@ -13,6 +13,8 @@ class DonationDrive {
     this.raisedAmount = 0,
     this.items = const [],
     this.location,
+    this.category,
+    this.bannerUrl,
     this.createdAt,
   });
 
@@ -27,6 +29,8 @@ class DonationDrive {
   final double raisedAmount;
   final List<String> items;
   final String? location;
+  final String? category;
+  final String? bannerUrl;
   final DateTime? createdAt;
 
   factory DonationDrive.fromFirestore(DocumentSnapshot doc) {
@@ -43,6 +47,8 @@ class DonationDrive {
       raisedAmount: (m['raisedAmount'] as num?)?.toDouble() ?? 0,
       items: List<String>.from(m['items'] ?? []),
       location: m['location'] as String?,
+      category: m['category'] as String?,
+      bannerUrl: m['bannerUrl'] as String?,
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -59,6 +65,8 @@ class DonationDrive {
       'raisedAmount': raisedAmount,
       'items': items,
       'location': location,
+      'category': category,
+      'bannerUrl': bannerUrl,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
   }
