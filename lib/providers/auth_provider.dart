@@ -23,13 +23,17 @@ class AuthNotifier extends ChangeNotifier {
   User? _firebaseUser;
   AppUser? _appUser;
   bool _appUserLoaded = false;
+  bool _authInitialized = false;
 
   User? get currentUser => _firebaseUser;
   AppUser? get appUser => _appUser;
   bool get isLoggedIn => _firebaseUser != null;
   bool get appUserLoaded => _appUserLoaded;
+  /// True after first authStateChanges emission (persisted session restored)
+  bool get authInitialized => _authInitialized;
 
   Future<void> _onAuthStateChanged(User? user) async {
+    _authInitialized = true;
     _firebaseUser = user;
     _appUserLoaded = false;
     _appUser = null;

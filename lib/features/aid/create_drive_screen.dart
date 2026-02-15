@@ -21,6 +21,10 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
   final _goalController = TextEditingController();
   final _locationController = TextEditingController();
   final _bannerUrlController = TextEditingController();
+  final _contactEmailController = TextEditingController();
+  final _contactPhoneController = TextEditingController();
+  final _whatsappController = TextEditingController();
+  final _addressController = TextEditingController();
   final _firestore = FirestoreService();
   bool _saving = false;
   DateTime? _startDate;
@@ -34,6 +38,10 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
     _goalController.dispose();
     _locationController.dispose();
     _bannerUrlController.dispose();
+    _contactEmailController.dispose();
+    _contactPhoneController.dispose();
+    _whatsappController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
@@ -86,6 +94,10 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
         startDate: _startDate,
         endDate: _endDate,
         createdAt: DateTime.now(),
+        contactEmail: _contactEmailController.text.trim().isEmpty ? null : _contactEmailController.text.trim(),
+        contactPhone: _contactPhoneController.text.trim().isEmpty ? null : _contactPhoneController.text.trim(),
+        whatsappNumber: _whatsappController.text.trim().isEmpty ? null : _whatsappController.text.trim(),
+        address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
       );
       await _firestore.addDonationDrive(drive);
       if (mounted) {
@@ -135,7 +147,15 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
           const SizedBox(height: 12),
           TextField(controller: _goalController, decoration: const InputDecoration(labelText: 'Goal amount'), keyboardType: TextInputType.number),
           const SizedBox(height: 12),
-          TextField(controller: _locationController, decoration: const InputDecoration(labelText: 'Location')),
+          TextField(controller: _locationController, decoration: const InputDecoration(labelText: 'Location (e.g. city, state)')),
+          const SizedBox(height: 12),
+          TextField(controller: _addressController, decoration: const InputDecoration(labelText: 'Full address (optional)'), maxLines: 2),
+          const SizedBox(height: 12),
+          TextField(controller: _contactEmailController, decoration: const InputDecoration(labelText: 'Contact email'), keyboardType: TextInputType.emailAddress),
+          const SizedBox(height: 12),
+          TextField(controller: _contactPhoneController, decoration: const InputDecoration(labelText: 'Contact phone'), keyboardType: TextInputType.phone),
+          const SizedBox(height: 12),
+          TextField(controller: _whatsappController, decoration: const InputDecoration(labelText: 'WhatsApp number (for donors to reach you)'), keyboardType: TextInputType.phone),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: _category,

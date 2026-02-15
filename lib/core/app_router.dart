@@ -14,28 +14,39 @@ import '../features/analytics/analytics_screen.dart';
 import '../features/ai/chatbot_screen.dart';
 import '../features/ai/alerts_screen.dart';
 import '../features/ai/match_screen.dart';
+import '../features/admin/developer_screen.dart';
 import '../app/app_shell.dart';
 import '../providers/auth_provider.dart';
 
 GoRouter createAppRouter(AuthNotifier authNotifier) {
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/',
     refreshListenable: authNotifier,
     redirect: (BuildContext context, GoRouterState state) {
+      // Wait for auth to restore from persistence before redirecting
+      if (!authNotifier.authInitialized) return '/splash';
       final isLoggedIn = authNotifier.currentUser != null;
       final isLoginRoute = state.matchedLocation == '/login';
+      final isSplash = state.matchedLocation == '/splash';
+      if (isSplash) return isLoggedIn ? '/home' : '/login';
       if (isLoggedIn && isLoginRoute) return '/home';
-      if (!isLoggedIn && !isLoginRoute) return '/login';
+      if (!isLoggedIn && !isLoginRoute && !isSplash) return '/login';
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (_, __) => const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      ),
       GoRoute(
         path: '/login',
         builder: (_, __) => const LoginScreen(),
       ),
       GoRoute(
         path: '/',
-        redirect: (_, __) => '/home',
+        redirect: (_, __) => '/splash',
       ),
       ShellRoute(
         builder: (_, __, child) => AppShell(child: child),
@@ -53,6 +64,7 @@ GoRouter createAppRouter(AuthNotifier authNotifier) {
           GoRoute(path: '/chatbot', builder: (_, __) => const ChatbotScreen()),
           GoRoute(path: '/alerts', builder: (_, __) => const AlertsScreen()),
           GoRoute(path: '/match', builder: (_, __) => const MatchScreen()),
+          GoRoute(path: '/developer', builder: (_, __) => const DeveloperScreen()),
         ],
       ),
     ],

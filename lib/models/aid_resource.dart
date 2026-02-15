@@ -16,6 +16,8 @@ class AidResource {
     this.ownerId,
     this.createdAt,
     this.updatedAt,
+    this.lat,
+    this.lng,
   });
 
   final String id;
@@ -24,6 +26,8 @@ class AidResource {
   final String? category;
   final String? location;
   final AidUrgency urgency;
+  final double? lat;
+  final double? lng;
   final int? quantity;
   final String? unit;
   final String? ownerId;
@@ -44,6 +48,8 @@ class AidResource {
       ownerId: m['ownerId'] as String?,
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (m['updatedAt'] as Timestamp?)?.toDate(),
+      lat: (m['lat'] as num?)?.toDouble(),
+      lng: (m['lng'] as num?)?.toDouble(),
     );
   }
 
@@ -66,6 +72,8 @@ class AidResource {
       'ownerId': ownerId,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'lat': lat,
+      'lng': lng,
     };
   }
 }

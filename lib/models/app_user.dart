@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// User = joins drives; Org = creates/manages drives; Admin = full access
 enum UserRole { volunteer, ngo, admin }
 
 class AppUser {
@@ -45,9 +46,20 @@ class AppUser {
 
   static UserRole _roleFrom(dynamic v) {
     if (v == null) return UserRole.volunteer;
-    if (v == 'ngo') return UserRole.ngo;
+    if (v == 'ngo' || v == 'org') return UserRole.ngo;
     if (v == 'admin') return UserRole.admin;
     return UserRole.volunteer;
+  }
+
+  static String roleDisplayName(UserRole role) {
+    switch (role) {
+      case UserRole.volunteer:
+        return 'User';
+      case UserRole.ngo:
+        return 'Organizer';
+      case UserRole.admin:
+        return 'Admin';
+    }
   }
 
   Map<String, dynamic> toMap() {

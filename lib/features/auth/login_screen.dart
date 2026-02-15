@@ -106,11 +106,11 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(UserRole.volunteer),
-            child: const Text('Volunteer'),
+            child: const Text('User - Join drives & volunteer'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(UserRole.ngo),
-            child: const Text('Organizer'),
+            child: const Text('Organizer - Create & manage drives'),
           ),
         ],
       ),

@@ -16,6 +16,12 @@ class DonationDrive {
     this.category,
     this.bannerUrl,
     this.createdAt,
+    this.contactEmail,
+    this.contactPhone,
+    this.whatsappNumber,
+    this.address,
+    this.lat,
+    this.lng,
   });
 
   final String id;
@@ -32,6 +38,12 @@ class DonationDrive {
   final String? category;
   final String? bannerUrl;
   final DateTime? createdAt;
+  final String? contactEmail;
+  final String? contactPhone;
+  final String? whatsappNumber;
+  final String? address;
+  final double? lat;
+  final double? lng;
 
   factory DonationDrive.fromFirestore(DocumentSnapshot doc) {
     final m = doc.data() as Map<String, dynamic>? ?? {};
@@ -50,6 +62,12 @@ class DonationDrive {
       category: m['category'] as String?,
       bannerUrl: m['bannerUrl'] as String?,
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
+      contactEmail: m['contactEmail'] as String?,
+      contactPhone: m['contactPhone'] as String?,
+      whatsappNumber: m['whatsappNumber'] as String?,
+      address: m['address'] as String?,
+      lat: (m['lat'] as num?)?.toDouble(),
+      lng: (m['lng'] as num?)?.toDouble(),
     );
   }
 
@@ -68,6 +86,12 @@ class DonationDrive {
       'category': category,
       'bannerUrl': bannerUrl,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+      'contactEmail': contactEmail,
+      'contactPhone': contactPhone,
+      'whatsappNumber': whatsappNumber,
+      'address': address,
+      'lat': lat,
+      'lng': lng,
     };
   }
 }

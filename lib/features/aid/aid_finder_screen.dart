@@ -1,10 +1,26 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/aid_resource.dart';
 import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
 import '../../core/config.dart';
+
+// Default reference: Kuala Lumpur
+const _defaultLat = 3.1390;
+const _defaultLng = 101.6869;
+
+double _haversineKm(double lat1, double lng1, double lat2, double lng2) {
+  const r = 6371.0; // Earth radius in km
+  final dLat = (lat2 - lat1) * pi / 180;
+  final dLng = (lng2 - lng1) * pi / 180;
+  final a = sin(dLat / 2) * sin(dLat / 2) +
+      cos(lat1 * pi / 180) * cos(lat2 * pi / 180) * sin(dLng / 2) * sin(dLng / 2);
+  final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+  return r * c;
+}
 
 class AidFinderScreen extends StatefulWidget {
   const AidFinderScreen({super.key});
@@ -22,8 +38,11 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
   List<AidResource> _filtered = [];
   String? _category;
   String? _urgencyFilter;
+  double? _maxDistanceKm;
   bool _loading = true;
   String? _contextualHint;
+
+  static const _categories = ['Food', 'Clothing', 'Shelter', 'Medical', 'Education', 'Hygiene', 'Transport', 'All'];
 
   @override
   void initState() {
@@ -34,29 +53,43 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final list = await _firestore.getAidResources(category: _category, urgency: _urgencyFilter);
-    setState(() { _list = list; _filtered = list; _loading = false; });
-    _applyLocationFilter();
+    if (mounted) {
+      setState(() { _list = list; _loading = false; });
+      _applyFilters();
+    }
   }
 
-  void _filter(String query) {
-    final q = query.toLowerCase();
+  void _applyFilters() {
+    final q = _searchController.text.trim().toLowerCase();
+    final loc = _locationFilterController.text.trim().toLowerCase();
+    final maxKm = _maxDistanceKm;
     setState(() {
-      _filtered = _list.where((r) {
+      var result = _list.where((r) {
         final matchText = q.isEmpty ||
             (r.title.toLowerCase().contains(q)) ||
             (r.description?.toLowerCase().contains(q) ?? false) ||
             (r.category?.toLowerCase().contains(q) ?? false);
         if (!matchText) return false;
-        final loc = _locationFilterController.text.trim().toLowerCase();
-        if (loc.isEmpty) return true;
-        return r.location?.toLowerCase().contains(loc) ?? false;
+        if (loc.isNotEmpty && (r.location?.toLowerCase().contains(loc) ?? false) == false) return false;
+        if (maxKm != null && maxKm > 0 && (r.lat != null && r.lng != null)) {
+          final km = _haversineKm(_defaultLat, _defaultLng, r.lat!, r.lng!);
+          if (km > maxKm) return false;
+        }
+        return true;
       }).toList();
+      // Sort by distance when distance filter is on
+      if (maxKm != null && maxKm > 0) {
+        result.sort((a, b) {
+          final aKm = (a.lat != null && a.lng != null) ? _haversineKm(_defaultLat, _defaultLng, a.lat!, a.lng!) : double.infinity;
+          final bKm = (b.lat != null && b.lng != null) ? _haversineKm(_defaultLat, _defaultLng, b.lat!, b.lng!) : double.infinity;
+          return aKm.compareTo(bKm);
+        });
+      }
+      _filtered = result;
     });
   }
 
-  void _applyLocationFilter() {
-    _filter(_searchController.text);
-  }
+  void _filter(String _) => _applyFilters();
 
   Future<void> _contextualSearch() async {
     final query = _searchController.text.trim();
@@ -77,6 +110,14 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _openMaps(AidResource r) async {
+    if (r.lat == null || r.lng == null) return;
+    final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -123,7 +164,30 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                 TextField(
                   controller: _locationFilterController,
                   decoration: const InputDecoration(hintText: 'Filter by location', prefixIcon: Icon(Icons.location_on, size: 20)),
-                  onChanged: (_) => _applyLocationFilter(),
+                  onChanged: (_) => _applyFilters(),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text('Max distance (km):', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                    ChoiceChip(
+                      label: const Text('Any'),
+                      selected: _maxDistanceKm == null,
+                      onSelected: (_) {
+                        setState(() { _maxDistanceKm = null; _applyFilters(); });
+                      },
+                    ),
+                    ...([10, 25, 50, 100, 200].map((km) => ChoiceChip(
+                      label: Text('$km km'),
+                      selected: _maxDistanceKm == km.toDouble(),
+                      onSelected: (_) {
+                        setState(() { _maxDistanceKm = km.toDouble(); _applyFilters(); });
+                      },
+                    ))),
+                  ],
                 ),
               ],
             ),
@@ -151,7 +215,7 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
               runSpacing: 8,
               children: [
                 const Text('Category:', style: TextStyle(fontWeight: FontWeight.w500)),
-                ...['Food', 'Clothing', 'Shelter', 'Medical', 'All'].map((c) {
+                ..._categories.map((c) {
                   final isSelected = _category == (c == 'All' ? null : c);
                   return Padding(
                     padding: const EdgeInsets.only(left: 4),
@@ -196,23 +260,42 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _filtered.isEmpty
-                    ? const Center(child: Text('No resources found'))
+                    ? const Center(child: Text('No resources found. Try adjusting filters.'))
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _filtered.length,
                         itemBuilder: (_, i) {
                           final r = _filtered[i];
+                          final distanceKm = (r.lat != null && r.lng != null)
+                              ? _haversineKm(_defaultLat, _defaultLng, r.lat!, r.lng!)
+                              : null;
                           return Card(
                             margin: const EdgeInsets.only(bottom: 8),
                             child: ListTile(
                               title: Text(r.title),
-                              subtitle: Text([
-                                r.description,
-                                r.category,
-                                r.location,
-                                'Urgency: ${r.urgency.name}',
-                              ].whereType<String>().join(' · ')),
-                              trailing: r.quantity != null ? Text('${r.quantity} ${r.unit ?? ''}') : null,
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (r.description != null) Text(r.description!, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      if (r.category != null) _chip(r.category!),
+                                      if (r.location != null) _chip(r.location!),
+                                      if (distanceKm != null) _chip('${distanceKm.toStringAsFixed(1)} km'),
+                                    ],
+                                  ),
+                                  Text('Urgency: ${r.urgency.name}', style: TextStyle(color: _urgencyColor(r.urgency), fontSize: 12)),
+                                ],
+                              ),
+                              trailing: r.lat != null && r.lng != null
+                                  ? IconButton(
+                                      icon: const Icon(Icons.directions),
+                                      onPressed: () => _openMaps(r),
+                                      tooltip: 'Open in Maps',
+                                    )
+                                  : (r.quantity != null ? Text('${r.quantity} ${r.unit ?? ''}') : null),
+                              isThreeLine: true,
                             ),
                           );
                         },
@@ -221,6 +304,24 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
         ],
       ),
     );
+  }
+
+  Widget _chip(String label) => Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: Chip(label: Text(label, style: const TextStyle(fontSize: 11)), padding: EdgeInsets.zero, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, visualDensity: VisualDensity.compact),
+      );
+
+  Color _urgencyColor(AidUrgency u) {
+    switch (u) {
+      case AidUrgency.critical:
+        return Colors.red;
+      case AidUrgency.high:
+        return Colors.orange;
+      case AidUrgency.medium:
+        return Colors.blue;
+      case AidUrgency.low:
+        return Colors.grey;
+    }
   }
 }
 
@@ -237,15 +338,21 @@ class _SubmitAidRequestSheetState extends State<_SubmitAidRequestSheet> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   final _locationController = TextEditingController();
+  final _latController = TextEditingController();
+  final _lngController = TextEditingController();
   String? _category;
   AidUrgency _urgency = AidUrgency.medium;
   bool _saving = false;
+
+  static const _submitCategories = ['Food', 'Clothing', 'Shelter', 'Medical', 'Education', 'Hygiene', 'Transport'];
 
   @override
   void dispose() {
     _titleController.dispose();
     _descController.dispose();
     _locationController.dispose();
+    _latController.dispose();
+    _lngController.dispose();
     super.dispose();
   }
 
@@ -259,6 +366,8 @@ class _SubmitAidRequestSheetState extends State<_SubmitAidRequestSheet> {
     setState(() => _saving = true);
     try {
       final ref = FirebaseFirestore.instance.collection('aid_resources').doc();
+      final lat = double.tryParse(_latController.text.trim());
+      final lng = double.tryParse(_lngController.text.trim());
       final resource = AidResource(
         id: ref.id,
         title: title,
@@ -267,6 +376,8 @@ class _SubmitAidRequestSheetState extends State<_SubmitAidRequestSheet> {
         location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
         urgency: _urgency,
         ownerId: uid,
+        lat: lat,
+        lng: lng,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -301,11 +412,19 @@ class _SubmitAidRequestSheetState extends State<_SubmitAidRequestSheet> {
             DropdownButtonFormField<String>(
               value: _category,
               decoration: const InputDecoration(labelText: 'Category'),
-              items: ['Food', 'Clothing', 'Shelter', 'Medical'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+              items: _submitCategories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
               onChanged: (v) => setState(() => _category = v),
             ),
             const SizedBox(height: 12),
             TextField(controller: _locationController, decoration: const InputDecoration(labelText: 'Location')),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: TextField(controller: _latController, decoration: const InputDecoration(labelText: 'Latitude (optional)'), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
+                const SizedBox(width: 12),
+                Expanded(child: TextField(controller: _lngController, decoration: const InputDecoration(labelText: 'Longitude (optional)'), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
+              ],
+            ),
             const SizedBox(height: 12),
             DropdownButtonFormField<AidUrgency>(
               value: _urgency,
