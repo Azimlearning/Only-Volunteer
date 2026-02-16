@@ -1,5 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Official campaign category for donation drives (NGO-only).
+enum CampaignCategory {
+  disasterRelief,
+  medicalHealth,
+  communityInfrastructure,
+  sustainedSupport,
+}
+
 class DonationDrive {
   DonationDrive({
     required this.id,
@@ -14,6 +22,8 @@ class DonationDrive {
     this.items = const [],
     this.location,
     this.category,
+    this.campaignCategory,
+    this.beneficiaryGroup,
     this.bannerUrl,
     this.createdAt,
     this.contactEmail,
@@ -36,6 +46,8 @@ class DonationDrive {
   final List<String> items;
   final String? location;
   final String? category;
+  final CampaignCategory? campaignCategory;
+  final String? beneficiaryGroup;
   final String? bannerUrl;
   final DateTime? createdAt;
   final String? contactEmail;
@@ -44,6 +56,16 @@ class DonationDrive {
   final String? address;
   final double? lat;
   final double? lng;
+
+  static CampaignCategory? _campaignCategoryFrom(dynamic v) {
+    if (v == null) return null;
+    final s = v.toString();
+    if (s == 'disasterRelief') return CampaignCategory.disasterRelief;
+    if (s == 'medicalHealth') return CampaignCategory.medicalHealth;
+    if (s == 'communityInfrastructure') return CampaignCategory.communityInfrastructure;
+    if (s == 'sustainedSupport') return CampaignCategory.sustainedSupport;
+    return null;
+  }
 
   factory DonationDrive.fromFirestore(DocumentSnapshot doc) {
     final m = doc.data() as Map<String, dynamic>? ?? {};
@@ -60,6 +82,8 @@ class DonationDrive {
       items: List<String>.from(m['items'] ?? []),
       location: m['location'] as String?,
       category: m['category'] as String?,
+      campaignCategory: _campaignCategoryFrom(m['campaignCategory']),
+      beneficiaryGroup: m['beneficiaryGroup'] as String?,
       bannerUrl: m['bannerUrl'] as String?,
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
       contactEmail: m['contactEmail'] as String?,
@@ -84,6 +108,8 @@ class DonationDrive {
       'items': items,
       'location': location,
       'category': category,
+      'campaignCategory': campaignCategory?.name,
+      'beneficiaryGroup': beneficiaryGroup,
       'bannerUrl': bannerUrl,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'contactEmail': contactEmail,

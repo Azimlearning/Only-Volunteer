@@ -16,6 +16,7 @@ class DonationDrivesScreen extends StatefulWidget {
 
 class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
   String? _categoryFilter;
+  String? _campaignFilter; // disasterRelief, medicalHealth, communityInfrastructure, sustainedSupport
   int _currentPage = 0;
   static const int _itemsPerPage = 6;
 
@@ -67,12 +68,22 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
                 d.title,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold) ?? const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
-              if (d.category != null)
+              if (d.campaignCategory != null || d.category != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    d.category!.replaceAll('_', ' ').toUpperCase(),
+                    d.campaignCategory != null
+                        ? _campaignCategoryLabel(d.campaignCategory!)
+                        : (d.category ?? '').replaceAll('_', ' ').toUpperCase(),
                     style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              if (d.beneficiaryGroup != null && d.beneficiaryGroup!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Beneficiaries: ${d.beneficiaryGroup}',
+                    style: TextStyle(color: figmaOrange, fontSize: 13, fontWeight: FontWeight.w500),
                   ),
                 ),
               if (d.ngoName != null)
@@ -183,6 +194,19 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
     }
   }
 
+  String _campaignCategoryLabel(CampaignCategory c) {
+    switch (c) {
+      case CampaignCategory.disasterRelief:
+        return 'Disaster Relief';
+      case CampaignCategory.medicalHealth:
+        return 'Medical & Health';
+      case CampaignCategory.communityInfrastructure:
+        return 'Community Infrastructure';
+      case CampaignCategory.sustainedSupport:
+        return 'Sustained Support';
+    }
+  }
+
   List<DonationDrive> _getPaginatedDrives(List<DonationDrive> drives) {
     final start = _currentPage * _itemsPerPage;
     final end = (start + _itemsPerPage).clamp(0, drives.length);
@@ -262,10 +286,38 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
               children: [
                 FilterChip(
                   label: const Text('All'),
-                  selected: _categoryFilter == null,
+                  selected: _categoryFilter == null && _campaignFilter == null,
                   selectedColor: figmaOrange.withOpacity(0.2),
                   checkmarkColor: figmaOrange,
-                  onSelected: (_) => setState(() => _categoryFilter = null),
+                  onSelected: (_) => setState(() { _categoryFilter = null; _campaignFilter = null; }),
+                ),
+                FilterChip(
+                  label: const Text('Disaster Relief'),
+                  selected: _campaignFilter == 'disasterRelief',
+                  selectedColor: figmaOrange.withOpacity(0.2),
+                  checkmarkColor: figmaOrange,
+                  onSelected: (_) => setState(() => _campaignFilter = _campaignFilter == 'disasterRelief' ? null : 'disasterRelief'),
+                ),
+                FilterChip(
+                  label: const Text('Medical & Health'),
+                  selected: _campaignFilter == 'medicalHealth',
+                  selectedColor: figmaOrange.withOpacity(0.2),
+                  checkmarkColor: figmaOrange,
+                  onSelected: (_) => setState(() => _campaignFilter = _campaignFilter == 'medicalHealth' ? null : 'medicalHealth'),
+                ),
+                FilterChip(
+                  label: const Text('Community Infrastructure'),
+                  selected: _campaignFilter == 'communityInfrastructure',
+                  selectedColor: figmaOrange.withOpacity(0.2),
+                  checkmarkColor: figmaOrange,
+                  onSelected: (_) => setState(() => _campaignFilter = _campaignFilter == 'communityInfrastructure' ? null : 'communityInfrastructure'),
+                ),
+                FilterChip(
+                  label: const Text('Sustained Support'),
+                  selected: _campaignFilter == 'sustainedSupport',
+                  selectedColor: figmaOrange.withOpacity(0.2),
+                  checkmarkColor: figmaOrange,
+                  onSelected: (_) => setState(() => _campaignFilter = _campaignFilter == 'sustainedSupport' ? null : 'sustainedSupport'),
                 ),
                 FilterChip(
                   label: const Text('Disaster relief'),
@@ -293,6 +345,9 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
                 var drives = snapshot.data!.docs.map((d) => DonationDrive.fromFirestore(d)).toList();
                 if (_categoryFilter != null) {
                   drives = drives.where((d) => d.category == _categoryFilter).toList();
+                }
+                if (_campaignFilter != null) {
+                  drives = drives.where((d) => d.campaignCategory?.name == _campaignFilter).toList();
                 }
                 // Reset to first page when filter changes
                 if (_currentPage >= _getTotalPages(drives.length)) {

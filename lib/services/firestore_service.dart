@@ -9,6 +9,7 @@ import '../models/alert.dart';
 import '../models/feed_post.dart';
 import '../models/donation.dart';
 import '../models/feed_comment.dart';
+import '../models/micro_donation_request.dart';
 import '../core/config.dart';
 
 class FirestoreService {
@@ -29,6 +30,7 @@ class FirestoreService {
   static const _donations = 'donations';
   static const _feedComments = 'feed_comments';
   static const _reports = 'reports';
+  static const _microDonations = 'micro_donations';
 
   Future<AppUser?> getUser(String uid) async {
     final doc = await _db.collection(_users).doc(uid).get();
@@ -68,12 +70,15 @@ class FirestoreService {
     return _db.collection(_donationDrives).orderBy('createdAt', descending: true).snapshots();
   }
 
-  Future<List<DonationDrive>> getDonationDrives({String? category}) async {
+  Future<List<DonationDrive>> getDonationDrives({String? category, String? campaignCategory}) async {
     var query = _db.collection(_donationDrives).orderBy('createdAt', descending: true).limit(50);
     final snap = await query.get();
     var list = snap.docs.map((d) => DonationDrive.fromFirestore(d)).toList();
     if (category != null && category.isNotEmpty) {
       list = list.where((d) => d.category == category).toList();
+    }
+    if (campaignCategory != null && campaignCategory.isNotEmpty) {
+      list = list.where((d) => d.campaignCategory?.name == campaignCategory).toList();
     }
     return list;
   }
@@ -244,5 +249,46 @@ class FirestoreService {
       total += (data['amount'] as num?)?.toDouble() ?? 0;
     }
     return total;
+  }
+
+  // --- Micro donations (Opportunities / Donations tab) ---
+
+  Future<List<MicroDonationRequest>> getMicroDonations({
+    String? category,
+    String? status,
+    String? requesterId,
+    int limit = 50,
+  }) async {
+    final snap = await _db.collection(_microDonations).orderBy('createdAt', descending: true).limit(100).get();
+    var list = snap.docs.map((d) => MicroDonationRequest.fromFirestore(d)).toList();
+    if (requesterId != null && requesterId.isNotEmpty) {
+      list = list.where((r) => r.requesterId == requesterId).toList();
+    }
+    if (status != null && status.isNotEmpty) {
+      list = list.where((r) => r.status.name == status).toList();
+    }
+    if (category != null && category.isNotEmpty) {
+      list = list.where((r) => r.category.name == category).toList();
+    }
+    return list.take(limit).toList();
+  }
+
+  Future<void> addMicroDonationRequest(MicroDonationRequest request) async {
+    await _db.collection(_microDonations).doc(request.id).set(request.toMap());
+  }
+
+  Future<void> fulfillMicroDonation(String requestId, String fulfillerId) async {
+    await _db.collection(_microDonations).doc(requestId).update({
+      'status': 'fulfilled',
+      'fulfilledBy': fulfillerId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> cancelMicroDonation(String requestId) async {
+    await _db.collection(_microDonations).doc(requestId).update({
+      'status': 'cancelled',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 }

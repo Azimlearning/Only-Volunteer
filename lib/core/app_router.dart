@@ -6,6 +6,8 @@ import '../features/aid/aid_finder_screen.dart';
 import '../features/aid/donation_drives_screen.dart';
 import '../features/aid/create_drive_screen.dart';
 import '../features/volunteer/volunteer_listings_screen.dart';
+import '../features/opportunities/opportunities_screen.dart';
+import '../features/opportunities/my_requests_screen.dart';
 import '../features/volunteer/create_opportunity_screen.dart';
 import '../features/volunteer/my_activities_screen.dart';
 import '../features/volunteer/opportunities_map_screen.dart';
@@ -57,7 +59,8 @@ GoRouter createAppRouter(AuthNotifier authNotifier) {
           GoRoute(path: '/finder', builder: (_, __) => const AidFinderScreen()),
           GoRoute(path: '/drives', builder: (_, __) => const DonationDrivesScreen()),
           GoRoute(path: '/create-drive', builder: (_, __) => const CreateDriveScreen()),
-          GoRoute(path: '/opportunities', builder: (_, __) => const VolunteerListingsScreen()),
+          GoRoute(path: '/opportunities', builder: (_, __) => const OpportunitiesScreen()),
+          GoRoute(path: '/my-requests', builder: (_, __) => const MyRequestsScreen()),
           GoRoute(path: '/create-opportunity', builder: (_, __) => const CreateOpportunityScreen()),
           GoRoute(path: '/map', builder: (_, __) => const OpportunitiesMapScreen()),
           GoRoute(path: '/my-activities', builder: (_, __) => const MyActivitiesScreen()),

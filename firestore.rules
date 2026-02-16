@@ -25,7 +25,20 @@ service cloud.firestore {
     }
     match /donation_drives/{id} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create: if isSignedIn() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ngo' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+      allow update, delete: if isSignedIn() && resource.data.ngoId == request.auth.uid;
+    }
+    match /micro_donations/{id} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.requesterId == request.auth.uid ||
+        request.resource.data.fulfilledBy == request.auth.uid
+      );
+      allow delete: if isSignedIn() && resource.data.requesterId == request.auth.uid;
     }
     match /volunteer_listings/{id} {
       allow read: if true;

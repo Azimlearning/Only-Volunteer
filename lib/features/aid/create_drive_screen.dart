@@ -31,6 +31,8 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   String? _category;
+  CampaignCategory? _campaignCategory;
+  final _beneficiaryController = TextEditingController();
 
   @override
   void dispose() {
@@ -43,6 +45,7 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
     _contactPhoneController.dispose();
     _whatsappController.dispose();
     _addressController.dispose();
+    _beneficiaryController.dispose();
     super.dispose();
   }
 
@@ -91,6 +94,8 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
         raisedAmount: 0,
         location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
         category: _category,
+        campaignCategory: _campaignCategory,
+        beneficiaryGroup: _beneficiaryController.text.trim().isEmpty ? null : _beneficiaryController.text.trim(),
         bannerUrl: _bannerUrlController.text.trim().isEmpty ? null : _bannerUrlController.text.trim(),
         startDate: _startDate,
         endDate: _endDate,
@@ -224,6 +229,26 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          DropdownButtonFormField<CampaignCategory>(
+            value: _campaignCategory,
+            decoration: const InputDecoration(labelText: 'Campaign category'),
+            items: const [
+              DropdownMenuItem(value: CampaignCategory.disasterRelief, child: Text('Disaster Relief')),
+              DropdownMenuItem(value: CampaignCategory.medicalHealth, child: Text('Medical & Health')),
+              DropdownMenuItem(value: CampaignCategory.communityInfrastructure, child: Text('Community Infrastructure')),
+              DropdownMenuItem(value: CampaignCategory.sustainedSupport, child: Text('Sustained Support')),
+            ],
+            onChanged: (v) => setState(() => _campaignCategory = v),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _beneficiaryController,
+            decoration: const InputDecoration(
+              labelText: 'Beneficiary group (e.g. 500 Flood Victims in Johor)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: _category,
             decoration: const InputDecoration(labelText: 'Category'),
@@ -232,28 +257,6 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
               DropdownMenuItem(value: 'community_support', child: Text('Community support')),
             ],
             onChanged: (v) => setState(() => _category = v),
-          ),
-          const SizedBox(height: 12),
-          TextField(controller: _bannerUrlController, decoration: const InputDecoration(labelText: 'Banner image URL (optional)')),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _pickStartDate,
-                  icon: const Icon(Icons.calendar_today, size: 18),
-                  label: Text(_startDate != null ? _formatDate(_startDate!) : 'Start date'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _pickEndDate,
-                  icon: const Icon(Icons.calendar_today, size: 18),
-                  label: Text(_endDate != null ? _formatDate(_endDate!) : 'End date'),
-                ),
-              ),
-            ],
           ),
           const SizedBox(height: 24),
           FilledButton(
