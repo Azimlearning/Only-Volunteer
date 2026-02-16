@@ -7,6 +7,7 @@ import '../../models/donation_drive.dart';
 import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
+import '../../core/theme.dart';
 
 class CreateDriveScreen extends StatefulWidget {
   const CreateDriveScreen({super.key});
@@ -136,26 +137,92 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text('Create Donation Drive', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 24),
-          TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Title *')),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Create Donation Drive',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: figmaBlack),
+            ),
+            const SizedBox(height: 24),
+          TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(
+              labelText: 'Drive Name',
+              border: OutlineInputBorder(),
+            ),
+          ),
           const SizedBox(height: 12),
-          TextField(controller: _descController, decoration: const InputDecoration(labelText: 'Description'), maxLines: 3),
+          TextField(
+            controller: _locationController,
+            decoration: const InputDecoration(
+              labelText: 'Location',
+              border: OutlineInputBorder(),
+            ),
+          ),
           const SizedBox(height: 12),
-          TextField(controller: _goalController, decoration: const InputDecoration(labelText: 'Goal amount'), keyboardType: TextInputType.number),
+          TextField(
+            controller: _descController,
+            decoration: const InputDecoration(
+              labelText: 'Description',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 3,
+          ),
           const SizedBox(height: 12),
-          TextField(controller: _locationController, decoration: const InputDecoration(labelText: 'Location (e.g. city, state)')),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickStartDate,
+                  icon: const Icon(Icons.calendar_today, size: 18),
+                  label: Text(_startDate != null ? _formatDate(_startDate!) : 'Start Date'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickEndDate,
+                  icon: const Icon(Icons.calendar_today, size: 18),
+                  label: Text(_endDate != null ? _formatDate(_endDate!) : 'End Date'),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
-          TextField(controller: _addressController, decoration: const InputDecoration(labelText: 'Full address (optional)'), maxLines: 2),
+          TextField(
+            controller: _goalController,
+            decoration: const InputDecoration(
+              labelText: 'Target Amount',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.number,
+          ),
           const SizedBox(height: 12),
-          TextField(controller: _contactEmailController, decoration: const InputDecoration(labelText: 'Contact email'), keyboardType: TextInputType.emailAddress),
+          TextField(
+            controller: _contactEmailController,
+            decoration: const InputDecoration(
+              labelText: 'Contact Email',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.emailAddress,
+          ),
           const SizedBox(height: 12),
-          TextField(controller: _contactPhoneController, decoration: const InputDecoration(labelText: 'Contact phone'), keyboardType: TextInputType.phone),
+          TextField(
+            controller: _contactPhoneController,
+            decoration: const InputDecoration(
+              labelText: 'Contact Person',
+              border: OutlineInputBorder(),
+            ),
+          ),
           const SizedBox(height: 12),
-          TextField(controller: _whatsappController, decoration: const InputDecoration(labelText: 'WhatsApp number (for donors to reach you)'), keyboardType: TextInputType.phone),
+          TextField(
+            controller: _bannerUrlController,
+            decoration: const InputDecoration(
+              labelText: 'Image Upload (URL)',
+              border: OutlineInputBorder(),
+            ),
+          ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: _category,
@@ -191,7 +258,16 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
           const SizedBox(height: 24),
           FilledButton(
             onPressed: _saving ? null : _submit,
-            child: _saving ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Create'),
+            style: FilledButton.styleFrom(
+              backgroundColor: figmaPurple,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: _saving
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text(
+                    'Create Drive',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
           ),
         ],
       ),

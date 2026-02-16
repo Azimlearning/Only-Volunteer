@@ -6,6 +6,7 @@ import '../features/aid/aid_finder_screen.dart';
 import '../features/aid/donation_drives_screen.dart';
 import '../features/aid/create_drive_screen.dart';
 import '../features/volunteer/volunteer_listings_screen.dart';
+import '../features/volunteer/create_opportunity_screen.dart';
 import '../features/volunteer/my_activities_screen.dart';
 import '../features/volunteer/opportunities_map_screen.dart';
 import '../features/social/feed_screen.dart';
@@ -15,6 +16,7 @@ import '../features/ai/chatbot_screen.dart';
 import '../features/ai/alerts_screen.dart';
 import '../features/ai/match_screen.dart';
 import '../features/admin/developer_screen.dart';
+import '../features/support/request_support_screen.dart';
 import '../app/app_shell.dart';
 import '../providers/auth_provider.dart';
 
@@ -56,6 +58,7 @@ GoRouter createAppRouter(AuthNotifier authNotifier) {
           GoRoute(path: '/drives', builder: (_, __) => const DonationDrivesScreen()),
           GoRoute(path: '/create-drive', builder: (_, __) => const CreateDriveScreen()),
           GoRoute(path: '/opportunities', builder: (_, __) => const VolunteerListingsScreen()),
+          GoRoute(path: '/create-opportunity', builder: (_, __) => const CreateOpportunityScreen()),
           GoRoute(path: '/map', builder: (_, __) => const OpportunitiesMapScreen()),
           GoRoute(path: '/my-activities', builder: (_, __) => const MyActivitiesScreen()),
           GoRoute(path: '/feed', builder: (_, __) => const FeedScreen()),
@@ -64,6 +67,7 @@ GoRouter createAppRouter(AuthNotifier authNotifier) {
           GoRoute(path: '/chatbot', builder: (_, __) => const ChatbotScreen()),
           GoRoute(path: '/alerts', builder: (_, __) => const AlertsScreen()),
           GoRoute(path: '/match', builder: (_, __) => const MatchScreen()),
+          GoRoute(path: '/request-support', builder: (_, __) => const RequestSupportScreen()),
           GoRoute(path: '/developer', builder: (_, __) => const DeveloperScreen()),
         ],
       ),

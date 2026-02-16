@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/donation_drive.dart';
 import '../../services/firestore_service.dart';
+import '../../core/theme.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -13,27 +14,75 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthNotifier>();
     final name = auth.appUser?.displayName ?? auth.appUser?.email.split('@').first ?? 'there';
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _HeroSection(name: name),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // About OnlyVolunteer section
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
+            ),
+          ),
+          child: Row(
+            children: [
+              Image.asset(
+                'assets/onlyvolunteer_logo.png',
+                width: 56,
+                height: 56,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: figmaOrange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.volunteer_activism, size: 32, color: figmaOrange),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'OnlyVolunteer',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: figmaBlack),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Welcome back, $name! Find opportunities, donate, and track your impact.',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Quick Actions - fits all buttons without scroll
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SectionTitle(title: 'Quick actions'),
-                const SizedBox(height: 12),
-                _QuickActionsGrid(),
-                const SizedBox(height: 28),
-                _SectionTitle(title: 'Suggested for you'),
-                const SizedBox(height: 12),
-                const _SuggestedDrivesSection(),
+                const Text(
+                  'Quick Actions',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: figmaBlack),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: _QuickActionsGrid(),
+                ),
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -52,9 +101,8 @@ class _HeroSection extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF0D47A1),
-            const Color(0xFF1565C0),
-            const Color(0xFF1976D2).withOpacity(0.9),
+            figmaOrange,
+            figmaPurple,
           ],
         ),
         borderRadius: const BorderRadius.only(
@@ -63,7 +111,7 @@ class _HeroSection extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0D47A1).withOpacity(0.3),
+            color: figmaOrange.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -142,69 +190,66 @@ class _SectionTitle extends StatelessWidget {
 class _QuickActionsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
     return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      mainAxisSpacing: 14,
-      crossAxisSpacing: 14,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
       childAspectRatio: 1.15,
       children: [
         _QuickCard(
           icon: Icons.search_rounded,
           title: 'Find Aid',
           subtitle: 'Resources & requests',
-          gradient: [primary, primary.withOpacity(0.8)],
+          color: figmaOrange,
           onTap: () => context.go('/finder'),
         ),
         _QuickCard(
           icon: Icons.volunteer_activism_rounded,
           title: 'Join Drive',
           subtitle: 'Donation drives',
-          gradient: [const Color(0xFF2E7D32), const Color(0xFF43A047)],
+          color: figmaPurple,
           onTap: () => context.go('/drives'),
         ),
         _QuickCard(
           icon: Icons.add_circle_outline_rounded,
           title: 'Create Drive',
           subtitle: 'Start a campaign',
-          gradient: [const Color(0xFFE65100), const Color(0xFFFF9800)],
+          color: figmaOrange,
           onTap: () => context.go('/create-drive'),
         ),
         _QuickCard(
           icon: Icons.notifications_active_rounded,
           title: 'Alerts',
           subtitle: 'SOS & flood alerts',
-          gradient: [const Color(0xFFC62828), const Color(0xFFE53935)],
+          color: figmaPurple,
           onTap: () => context.go('/alerts'),
         ),
         _QuickCard(
           icon: Icons.work_rounded,
           title: 'Opportunities',
           subtitle: 'Volunteer listings',
-          gradient: [const Color(0xFF6A1B9A), const Color(0xFF8E24AA)],
+          color: figmaOrange,
           onTap: () => context.go('/opportunities'),
         ),
         _QuickCard(
           icon: Icons.auto_awesome_rounded,
           title: 'Match Me',
           subtitle: 'AI recommendations',
-          gradient: [const Color(0xFF00838F), const Color(0xFF26C6DA)],
+          color: figmaPurple,
           onTap: () => context.go('/match'),
         ),
         _QuickCard(
           icon: Icons.people_rounded,
           title: 'Feed',
           subtitle: 'Community posts',
-          gradient: [const Color(0xFF37474F), const Color(0xFF546E7A)],
+          color: figmaOrange,
           onTap: () => context.go('/feed'),
         ),
         _QuickCard(
           icon: Icons.emoji_events_rounded,
           title: 'Leaderboard',
           subtitle: 'Top volunteers',
-          gradient: [const Color(0xFFF9A825), const Color(0xFFFFD54F)],
+          color: figmaPurple,
           onTap: () => context.go('/leaderboard'),
         ),
       ],
@@ -217,14 +262,14 @@ class _QuickCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.gradient,
+    required this.color,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final List<Color> gradient;
+  final Color color;
   final VoidCallback onTap;
 
   @override
@@ -234,55 +279,52 @@ class _QuickCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [gradient[0].withOpacity(0.12), gradient[1].withOpacity(0.06)],
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: gradient[0].withOpacity(0.2), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, size: 24, color: color),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: figmaBlack,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: gradient[0].withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, size: 26, color: gradient[0]),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -316,6 +358,7 @@ class _SuggestedDrivesSection extends StatelessWidget {
                   onPressed: () => context.go('/drives'),
                   icon: const Icon(Icons.explore, size: 18),
                   label: const Text('Browse drives'),
+                  style: FilledButton.styleFrom(backgroundColor: figmaOrange),
                 ),
               ],
             ),
@@ -357,10 +400,10 @@ class _DriveCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D47A1).withOpacity(0.1),
+                  color: figmaOrange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.volunteer_activism, color: Color(0xFF0D47A1), size: 28),
+                child: const Icon(Icons.volunteer_activism, color: figmaOrange, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -392,7 +435,7 @@ class _DriveCard extends StatelessWidget {
                         value: progress,
                         minHeight: 6,
                         backgroundColor: Colors.grey[200],
-                        valueColor: const AlwaysStoppedAnimation(Color(0xFF0D47A1)),
+                        valueColor: const AlwaysStoppedAnimation(figmaOrange),
                       ),
                     ),
                     const SizedBox(height: 4),

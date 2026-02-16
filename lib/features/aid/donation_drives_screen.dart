@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/donation_drive.dart';
 import '../../services/firestore_service.dart';
+import '../../core/theme.dart';
 
 class DonationDrivesScreen extends StatefulWidget {
   const DonationDrivesScreen({super.key});
@@ -15,6 +16,8 @@ class DonationDrivesScreen extends StatefulWidget {
 
 class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
   String? _categoryFilter;
+  int _currentPage = 0;
+  static const int _itemsPerPage = 6;
 
   void _showDriveDetail(DonationDrive d) {
     showModalBottomSheet(
@@ -164,6 +167,7 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close),
                 label: const Text('Close'),
+                style: FilledButton.styleFrom(backgroundColor: figmaOrange),
               ),
             ],
           ),
@@ -179,34 +183,102 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
     }
   }
 
+  List<DonationDrive> _getPaginatedDrives(List<DonationDrive> drives) {
+    final start = _currentPage * _itemsPerPage;
+    final end = (start + _itemsPerPage).clamp(0, drives.length);
+    return drives.sublist(start.clamp(0, drives.length), end);
+  }
+
+  int _getTotalPages(int total) => (total / _itemsPerPage).ceil();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go('/create-drive'),
-        child: const Icon(Icons.add),
-      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          // About Donation Drive section
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
+              ),
+            ),
+            child: Row(
+              children: [
+                Image.asset(
+                  'assets/onlyvolunteer_logo.png',
+                  width: 48,
+                  height: 48,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: figmaOrange.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.volunteer_activism, size: 24, color: figmaOrange),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Donation Drive',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Join or create donation drives to help those in need',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: () => context.go('/create-drive'),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Create New Drive'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: figmaOrange,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Filters
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            color: Colors.grey[50],
             child: Wrap(
               spacing: 8,
+              runSpacing: 8,
               children: [
                 FilterChip(
                   label: const Text('All'),
                   selected: _categoryFilter == null,
+                  selectedColor: figmaOrange.withOpacity(0.2),
+                  checkmarkColor: figmaOrange,
                   onSelected: (_) => setState(() => _categoryFilter = null),
                 ),
                 FilterChip(
                   label: const Text('Disaster relief'),
                   selected: _categoryFilter == 'disaster_relief',
+                  selectedColor: figmaOrange.withOpacity(0.2),
+                  checkmarkColor: figmaOrange,
                   onSelected: (_) => setState(() => _categoryFilter = _categoryFilter == 'disaster_relief' ? null : 'disaster_relief'),
                 ),
                 FilterChip(
                   label: const Text('Community support'),
                   selected: _categoryFilter == 'community_support',
+                  selectedColor: figmaOrange.withOpacity(0.2),
+                  checkmarkColor: figmaOrange,
                   onSelected: (_) => setState(() => _categoryFilter = _categoryFilter == 'community_support' ? null : 'community_support'),
                 ),
               ],
@@ -222,75 +294,167 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
                 if (_categoryFilter != null) {
                   drives = drives.where((d) => d.category == _categoryFilter).toList();
                 }
-                if (drives.isEmpty) return const Center(child: Text('No donation drives yet. Tap + to create one.'));
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: drives.length,
-                  itemBuilder: (_, i) {
-                    final d = drives[i];
-                    final progress = (d.goalAmount != null && d.goalAmount! > 0)
-                        ? (d.raisedAmount / d.goalAmount!).clamp(0.0, 1.0)
-                        : 0.0;
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
+                // Reset to first page when filter changes
+                if (_currentPage >= _getTotalPages(drives.length)) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _currentPage = 0);
+                  });
+                }
+                if (drives.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.volunteer_activism, size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          const Text('No donation drives yet.', style: TextStyle(fontSize: 16)),
+                          const SizedBox(height: 8),
+                          FilledButton.icon(
+                            onPressed: () => context.go('/create-drive'),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Create New Drive'),
+                            style: FilledButton.styleFrom(backgroundColor: figmaOrange),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                final paginatedDrives = _getPaginatedDrives(drives);
+                final totalPages = _getTotalPages(drives.length);
+                return Column(
+                  children: [
+                    Expanded(
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.75,
+                        ),
+                        itemCount: paginatedDrives.length,
+                        itemBuilder: (_, i) {
+                          final d = paginatedDrives[i];
+                          return Card(
                       clipBehavior: Clip.antiAlias,
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       child: InkWell(
                         onTap: () => _showDriveDetail(d),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (d.bannerUrl != null && d.bannerUrl!.isNotEmpty)
-                              CachedNetworkImage(
-                                imageUrl: d.bannerUrl!,
-                                height: 120,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                placeholder: (_, __) => const SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
-                                errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                              ),
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (d.category != null) ...[
-                                    Text(d.category!.replaceAll('_', ' '), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                                    const SizedBox(height: 4),
-                                  ],
-                                  Text(d.title, style: Theme.of(context).textTheme.titleMedium),
-                                  if (d.description != null) Text(d.description!, maxLines: 2, overflow: TextOverflow.ellipsis),
-                                  if (d.location != null)
-                                    Row(
-                                      children: [
-                                        Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: Text(
-                                            d.location!,
-                                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                                          ),
-                                        ),
-                                      ],
+                            // Image
+                            Expanded(
+                              flex: 3,
+                              child: d.bannerUrl != null && d.bannerUrl!.isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: d.bannerUrl!,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      placeholder: (_, __) => Container(
+                                        color: Colors.grey[200],
+                                        child: const Center(child: CircularProgressIndicator()),
+                                      ),
+                                      errorWidget: (_, __, ___) => Container(
+                                        color: Colors.grey[200],
+                                        child: Icon(Icons.image, size: 40, color: Colors.grey[400]),
+                                      ),
+                                    )
+                                  : Container(
+                                      color: Colors.grey[200],
+                                      child: Icon(Icons.image, size: 40, color: Colors.grey[400]),
                                     ),
-                                  if (d.ngoName != null) Text('By ${d.ngoName}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                                  const SizedBox(height: 8),
-                                  LinearProgressIndicator(value: progress),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text('Raised: RM ${d.raisedAmount.toStringAsFixed(0)} / RM ${d.goalAmount?.toStringAsFixed(0) ?? "—"}'),
-                                      Text('Tap for details', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12)),
-                                    ],
-                                  ),
-                                ],
+                            ),
+                            // Content
+                            Expanded(
+                              flex: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      d.title,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: figmaBlack,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const Spacer(),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: FilledButton(
+                                        onPressed: () => _showDriveDetail(d),
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: figmaOrange,
+                                          padding: const EdgeInsets.symmetric(vertical: 8),
+                                        ),
+                                        child: const Text(
+                                          'View Details',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
                     );
-                  },
+                          },
+                        ),
+                      ),
+                    // Pagination controls
+                    if (totalPages > 1)
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          border: Border(top: BorderSide(color: Colors.grey[200]!)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(totalPages, (index) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: InkWell(
+                                onTap: () => setState(() => _currentPage = index),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: _currentPage == index ? figmaOrange : Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: _currentPage == index ? figmaOrange : Colors.grey[300]!,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${index + 1}',
+                                      style: TextStyle(
+                                        color: _currentPage == index ? Colors.white : figmaBlack,
+                                        fontWeight: _currentPage == index ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                  ],
                 );
               },
             ),

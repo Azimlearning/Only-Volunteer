@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
+import '../core/theme.dart';
 
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.child});
@@ -16,19 +17,89 @@ class AppShell extends StatelessWidget {
     final canManage = auth.appUser?.role == UserRole.ngo || auth.appUser?.role == UserRole.admin;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('OnlyVolunteer'),
+        title: Row(
+          children: [
+            // Logo
+            Image.asset(
+              'assets/onlyvolunteer_logo.png',
+              width: 32,
+              height: 32,
+              errorBuilder: (context, error, stackTrace) => Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: figmaOrange.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.volunteer_activism, size: 20, color: figmaOrange),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'OnlyVolunteer',
+              style: TextStyle(
+                color: figmaBlack,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
         actions: [
-          IconButton(icon: const Icon(Icons.chat), onPressed: () => context.go('/chatbot')),
-          IconButton(icon: const Icon(Icons.notifications), onPressed: () => context.go('/alerts')),
+          // Orange button from Figma design (functionality to be determined)
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: FilledButton(
+              onPressed: () {
+                // TODO: Determine function - could be profile, menu, or notifications
+                // For now, opening drawer as placeholder
+                Scaffold.of(context).openDrawer();
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: figmaOrange,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: const Icon(Icons.menu, color: Colors.white),
+            ),
+          ),
         ],
       ),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Color(0xFF0D47A1)),
-              child: Text('OnlyVolunteer', style: TextStyle(color: Colors.white, fontSize: 24)),
+            DrawerHeader(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [figmaOrange, figmaPurple],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Image.asset(
+                    'assets/onlyvolunteer_logo.png',
+                    width: 48,
+                    height: 48,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.volunteer_activism, size: 28, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'OnlyVolunteer',
+                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
             ),
             ListTile(leading: const Icon(Icons.home), title: const Text('Home'), onTap: () => context.go('/home')),
             ListTile(leading: const Icon(Icons.search), title: const Text('Aid Finder'), onTap: () => context.go('/finder')),
