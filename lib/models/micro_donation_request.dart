@@ -35,6 +35,10 @@ class MicroDonationRequest {
     this.fulfilledBy,
     this.createdAt,
     this.updatedAt,
+    this.qrCodeUrl,
+    this.bank,
+    this.accountName,
+    this.accountNumber,
   });
 
   final String id;
@@ -54,6 +58,10 @@ class MicroDonationRequest {
   final String? fulfilledBy;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String? qrCodeUrl;
+  final String? bank;
+  final String? accountName;
+  final String? accountNumber;
 
   factory MicroDonationRequest.fromFirestore(DocumentSnapshot doc) {
     final m = doc.data() as Map<String, dynamic>? ?? {};
@@ -77,6 +85,10 @@ class MicroDonationRequest {
       fulfilledBy: m['fulfilledBy'] as String?,
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (m['updatedAt'] as Timestamp?)?.toDate(),
+      qrCodeUrl: m['qrCodeUrl'] as String?,
+      bank: m['bank'] as String?,
+      accountName: m['accountName'] as String?,
+      accountNumber: m['accountNumber'] as String?,
     );
   }
 
@@ -132,6 +144,10 @@ class MicroDonationRequest {
       'fulfilledBy': fulfilledBy,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'qrCodeUrl': qrCodeUrl,
+      'bank': bank,
+      'accountName': accountName,
+      'accountNumber': accountNumber,
     };
   }
 }

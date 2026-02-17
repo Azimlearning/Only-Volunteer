@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -50,135 +51,205 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+              // Banner image
               if (d.bannerUrl != null && d.bannerUrl!.isNotEmpty) ...[
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: CachedNetworkImage(
                     imageUrl: d.bannerUrl!,
-                    height: 160,
+                    height: 200,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => const SizedBox(height: 160, child: Center(child: CircularProgressIndicator())),
-                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                    placeholder: (_, __) => Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: CircularProgressIndicator(color: figmaOrange),
+                      ),
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey[400]),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
               ],
+              // Title
               Text(
                 d.title,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold) ?? const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: figmaBlack),
               ),
-              if (d.campaignCategory != null || d.category != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    d.campaignCategory != null
-                        ? _campaignCategoryLabel(d.campaignCategory!)
-                        : (d.category ?? '').replaceAll('_', ' ').toUpperCase(),
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
+              // Support type/Category
+              if (d.campaignCategory != null || d.category != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  d.campaignCategory != null
+                      ? _campaignCategoryLabel(d.campaignCategory!)
+                      : (d.category ?? '').replaceAll('_', ' ').toUpperCase(),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
                 ),
-              if (d.beneficiaryGroup != null && d.beneficiaryGroup!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'Beneficiaries: ${d.beneficiaryGroup}',
-                    style: TextStyle(color: figmaOrange, fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
+              ],
+              // Beneficiaries (highlighted in orange)
+              if (d.beneficiaryGroup != null && d.beneficiaryGroup!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Beneficiaries: ${d.beneficiaryGroup}',
+                  style: TextStyle(color: figmaOrange, fontSize: 15, fontWeight: FontWeight.w600),
                 ),
-              if (d.ngoName != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text('By ${d.ngoName}', style: TextStyle(color: Colors.grey[600])),
+              ],
+              // Organization name
+              if (d.ngoName != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'By ${d.ngoName}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
                 ),
+              ],
+              // Description
               if (d.description != null && d.description!.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                Text(d.description!, style: const TextStyle(height: 1.5)),
+                Text(
+                  d.description!,
+                  style: const TextStyle(height: 1.5, fontSize: 14),
+                ),
               ],
+              // Location
               if (d.location != null || d.address != null) ...[
                 const SizedBox(height: 16),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.location_on, size: 20, color: Theme.of(context).colorScheme.primary),
+                    Icon(Icons.location_on, size: 20, color: figmaOrange),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (d.location != null) Text(d.location!, style: const TextStyle(fontWeight: FontWeight.w500)),
-                          if (d.address != null) Text(d.address!, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+                          if (d.location != null)
+                            Text(
+                              d.location!,
+                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                            ),
+                          if (d.address != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              d.address!,
+                              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                            ),
+                          ],
                         ],
                       ),
                     ),
                   ],
                 ),
               ],
-              const SizedBox(height: 16),
+              // Progress bar
+              const SizedBox(height: 20),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: Colors.grey[50],
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!),
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     LinearProgressIndicator(
                       value: (d.goalAmount != null && d.goalAmount! > 0)
                           ? (d.raisedAmount / d.goalAmount!).clamp(0.0, 1.0)
                           : 0.0,
-                      minHeight: 8,
-                      borderRadius: BorderRadius.circular(4),
+                      minHeight: 10,
+                      borderRadius: BorderRadius.circular(5),
+                      backgroundColor: Colors.grey[300],
+                      valueColor: AlwaysStoppedAnimation<Color>(figmaOrange),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Text(
                       'Raised RM ${d.raisedAmount.toStringAsFixed(0)} / RM ${d.goalAmount?.toStringAsFixed(0) ?? "—"}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: figmaBlack),
                     ),
                   ],
                 ),
               ),
-              if (d.contactEmail != null || d.contactPhone != null || d.whatsappNumber != null) ...[
-                const SizedBox(height: 20),
-                const Text('Contact', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              // Contact section
+              if (d.contactEmail != null || d.contactPhone != null || d.whatsappNumber != null || (d.lat != null && d.lng != null)) ...[
+                const SizedBox(height: 24),
+                const Text(
+                  'Contact',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack),
+                ),
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                Row(
                   children: [
-                    if (d.contactEmail != null)
-                      ActionChip(
-                        avatar: const Icon(Icons.email, size: 18, color: Colors.white),
-                        label: const Text('Email'),
-                        onPressed: () => _launchUrl('mailto:${d.contactEmail}'),
+                    if (d.contactEmail != null) ...[
+                      Expanded(
+                        child: _ContactButton(
+                          icon: Icons.email,
+                          label: 'Email',
+                          onPressed: () => _launchUrl('mailto:${d.contactEmail}'),
+                        ),
                       ),
-                    if (d.contactPhone != null)
-                      ActionChip(
-                        avatar: const Icon(Icons.phone, size: 18, color: Colors.white),
-                        label: const Text('Call'),
-                        onPressed: () => _launchUrl('tel:${d.contactPhone}'),
+                      const SizedBox(width: 8),
+                    ],
+                    if (d.contactPhone != null) ...[
+                      Expanded(
+                        child: _ContactButton(
+                          icon: Icons.phone,
+                          label: 'Call',
+                          onPressed: () => _launchUrl('tel:${d.contactPhone}'),
+                        ),
                       ),
-                    if (d.whatsappNumber != null)
-                      ActionChip(
-                        avatar: const Icon(Icons.chat, size: 18, color: Colors.white),
-                        label: const Text('WhatsApp'),
-                        onPressed: () => _launchUrl('https://wa.me/${d.whatsappNumber!.replaceAll(RegExp(r'[^0-9]'), '')}'),
+                      const SizedBox(width: 8),
+                    ],
+                    if (d.whatsappNumber != null) ...[
+                      Expanded(
+                        child: _ContactButton(
+                          icon: Icons.chat,
+                          label: 'WhatsApp',
+                          onPressed: () => _launchUrl('https://wa.me/${d.whatsappNumber!.replaceAll(RegExp(r'[^0-9]'), '')}'),
+                        ),
                       ),
+                      const SizedBox(width: 8),
+                    ],
                     if (d.lat != null && d.lng != null)
-                      ActionChip(
-                        avatar: const Icon(Icons.directions, size: 18, color: Colors.white),
-                        label: const Text('Open in Maps'),
-                        onPressed: () => _launchUrl('https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}'),
+                      Expanded(
+                        child: _ContactButton(
+                          icon: Icons.directions,
+                          label: 'Open in Maps',
+                          onPressed: () => _launchUrl('https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}'),
+                        ),
                       ),
                   ],
                 ),
               ],
               const SizedBox(height: 24),
+              // Donate button
               FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showDonateDialog(d);
+                },
+                icon: const Icon(Icons.favorite),
+                label: const Text('Donate'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: figmaOrange,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Close button
+              OutlinedButton.icon(
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close),
                 label: const Text('Close'),
-                style: FilledButton.styleFrom(backgroundColor: figmaOrange),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: figmaBlack,
+                  side: BorderSide(color: Colors.grey[300]!),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
               ),
             ],
           ),
@@ -191,6 +262,177 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void _showDonateDialog(DonationDrive d) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.favorite, color: figmaOrange),
+            const SizedBox(width: 8),
+            const Text('Donate Now'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                d.title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              // QR Code
+              if (d.qrCodeUrl != null && d.qrCodeUrl!.isNotEmpty) ...[
+                const Text(
+                  'Scan QR Code to Donate',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Center(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: CachedNetworkImage(
+                        imageUrl: d.qrCodeUrl!,
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(
+                          width: 200,
+                          height: 200,
+                          color: Colors.grey[200],
+                          child: Center(
+                            child: CircularProgressIndicator(color: figmaOrange),
+                          ),
+                        ),
+                        errorWidget: (_, __, ___) => Container(
+                          width: 200,
+                          height: 200,
+                          color: Colors.grey[200],
+                          child: Icon(Icons.qr_code, size: 64, color: Colors.grey[400]),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+              // Bank Details
+              if (d.bank != null || d.accountName != null || d.accountNumber != null) ...[
+                const Text(
+                  'Bank Transfer Details',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (d.bank != null) ...[
+                        _BankDetailRow(label: 'Bank', value: _formatBankName(d.bank!)),
+                        const SizedBox(height: 12),
+                      ],
+                      if (d.accountName != null) ...[
+                        _BankDetailRow(label: 'Account Name', value: d.accountName!),
+                        const SizedBox(height: 12),
+                      ],
+                      if (d.accountNumber != null) ...[
+                        _BankDetailRow(label: 'Account Number', value: d.accountNumber!),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Copy button for account number
+                if (d.accountNumber != null)
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: d.accountNumber!));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Account number copied: ${d.accountNumber}'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('Copy Account Number'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: figmaPurple,
+                      side: BorderSide(color: figmaPurple),
+                    ),
+                  ),
+              ],
+              // If no payment method available
+              if ((d.qrCodeUrl == null || d.qrCodeUrl!.isEmpty) &&
+                  (d.bank == null && d.accountName == null && d.accountNumber == null)) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.amber[700]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Payment details not available. Please contact the organization directly.',
+                          style: TextStyle(color: Colors.amber[900], fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatBankName(String bank) {
+    switch (bank.toLowerCase()) {
+      case 'maybank':
+        return 'Maybank';
+      case 'cimb':
+        return 'CIMB Bank';
+      case 'public':
+        return 'Public Bank';
+      case 'hongleong':
+        return 'Hong Leong Bank';
+      case 'rhb':
+        return 'RHB Bank';
+      case 'ambank':
+        return 'AmBank';
+      default:
+        return bank;
     }
   }
 
@@ -566,6 +808,76 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ContactButton extends StatelessWidget {
+  const _ContactButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      label: Text(label, style: const TextStyle(fontSize: 13)),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: figmaBlack,
+        side: BorderSide(color: Colors.grey[300]!),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+}
+
+class _BankDetailRow extends StatelessWidget {
+  const _BankDetailRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: figmaBlack,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

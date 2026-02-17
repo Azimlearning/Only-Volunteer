@@ -32,6 +32,10 @@ class DonationDrive {
     this.address,
     this.lat,
     this.lng,
+    this.qrCodeUrl,
+    this.bank,
+    this.accountName,
+    this.accountNumber,
   });
 
   final String id;
@@ -56,6 +60,10 @@ class DonationDrive {
   final String? address;
   final double? lat;
   final double? lng;
+  final String? qrCodeUrl;
+  final String? bank;
+  final String? accountName;
+  final String? accountNumber;
 
   static CampaignCategory? _campaignCategoryFrom(dynamic v) {
     if (v == null) return null;
@@ -92,6 +100,10 @@ class DonationDrive {
       address: m['address'] as String?,
       lat: (m['lat'] as num?)?.toDouble(),
       lng: (m['lng'] as num?)?.toDouble(),
+      qrCodeUrl: m['qrCodeUrl'] as String?,
+      bank: m['bank'] as String?,
+      accountName: m['accountName'] as String?,
+      accountNumber: m['accountNumber'] as String?,
     );
   }
 
@@ -118,6 +130,10 @@ class DonationDrive {
       'address': address,
       'lat': lat,
       'lng': lng,
+      'qrCodeUrl': qrCodeUrl,
+      'bank': bank,
+      'accountName': accountName,
+      'accountNumber': accountNumber,
     };
   }
 }

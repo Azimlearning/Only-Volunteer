@@ -168,13 +168,38 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+              // Image display
+              if (r.imageUrl != null && r.imageUrl!.isNotEmpty) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CachedNetworkImage(
+                    imageUrl: r.imageUrl!,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: CircularProgressIndicator(color: figmaOrange),
+                      ),
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey[400]),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
               Text(
                 r.title,
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: figmaBlack),
               ),
               if (r.description != null) ...[
                 const SizedBox(height: 12),
-                Text(r.description!, style: const TextStyle(height: 1.5)),
+                Text(r.description!, style: const TextStyle(height: 1.5, fontSize: 14)),
               ],
               if (r.location != null) ...[
                 const SizedBox(height: 16),
@@ -188,21 +213,122 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
               ],
               if (r.category != null) ...[
                 const SizedBox(height: 12),
-                Chip(label: Text(r.category!), backgroundColor: figmaOrange.withOpacity(0.1)),
+                Chip(
+                  label: Text(r.category!),
+                  backgroundColor: figmaOrange.withOpacity(0.1),
+                  labelStyle: TextStyle(color: figmaOrange, fontWeight: FontWeight.w600),
+                ),
               ],
               const SizedBox(height: 12),
-              Text('Urgency: ${r.urgency.name}', style: TextStyle(color: _urgencyColor(r.urgency), fontSize: 14)),
-              const SizedBox(height: 24),
-              if (r.lat != null && r.lng != null)
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _openMaps(r);
-                  },
-                  icon: const Icon(Icons.directions),
-                  label: const Text('Open in Maps'),
-                  style: FilledButton.styleFrom(backgroundColor: figmaOrange),
+              Row(
+                children: [
+                  Text(
+                    'Urgency: ',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                  ),
+                  Text(
+                    r.urgency.name.toUpperCase(),
+                    style: TextStyle(
+                      color: _urgencyColor(r.urgency),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              // Operating Hours section
+              const SizedBox(height: 20),
+              const Text(
+                'Operating Hours',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!),
                 ),
+                child: Row(
+                  children: [
+                    Icon(Icons.access_time, size: 18, color: figmaOrange),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Mon-Fri: 9AM-5PM',
+                      style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              // Eligibility section
+              const SizedBox(height: 20),
+              const Text(
+                'Eligibility',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.verified_user, size: 18, color: figmaPurple),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Open to all community members',
+                        style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        // TODO: Implement message functionality
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Message functionality coming soon')),
+                        );
+                      },
+                      icon: const Icon(Icons.message),
+                      label: const Text('Message'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: figmaPurple,
+                        side: BorderSide(color: figmaPurple),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  if (r.lat != null && r.lng != null) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _openMaps(r);
+                        },
+                        icon: const Icon(Icons.directions),
+                        label: const Text('Open in Maps'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: figmaOrange,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
         ),

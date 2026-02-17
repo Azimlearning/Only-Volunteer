@@ -112,6 +112,10 @@ class _CreateDriveScreenState extends State<CreateDriveScreen> {
         contactPhone: _contactPhoneController.text.trim().isEmpty ? null : _contactPhoneController.text.trim(),
         whatsappNumber: _whatsappController.text.trim().isEmpty ? null : _whatsappController.text.trim(),
         address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+        qrCodeUrl: _qrCodeUrlController.text.trim().isEmpty ? null : _qrCodeUrlController.text.trim(),
+        bank: _bank,
+        accountName: _accountNameController.text.trim().isEmpty ? null : _accountNameController.text.trim(),
+        accountNumber: _accountNumberController.text.trim().isEmpty ? null : _accountNumberController.text.trim(),
       );
       await _firestore.addDonationDrive(drive);
       if (mounted) {
