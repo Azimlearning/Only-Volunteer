@@ -14,6 +14,7 @@ class AidResource {
     this.quantity,
     this.unit,
     this.ownerId,
+    this.imageUrl,
     this.createdAt,
     this.updatedAt,
     this.lat,
@@ -31,6 +32,7 @@ class AidResource {
   final int? quantity;
   final String? unit;
   final String? ownerId;
+  final String? imageUrl;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -46,6 +48,7 @@ class AidResource {
       quantity: (m['quantity'] as num?)?.toInt(),
       unit: m['unit'] as String?,
       ownerId: m['ownerId'] as String?,
+      imageUrl: m['imageUrl'] as String?,
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (m['updatedAt'] as Timestamp?)?.toDate(),
       lat: (m['lat'] as num?)?.toDouble(),
@@ -70,6 +73,7 @@ class AidResource {
       'quantity': quantity,
       'unit': unit,
       'ownerId': ownerId,
+      'imageUrl': imageUrl,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'lat': lat,

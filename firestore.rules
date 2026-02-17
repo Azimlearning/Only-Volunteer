@@ -7,6 +7,12 @@ service cloud.firestore {
     function isOwner(uid) {
       return request.auth != null && request.auth.uid == uid;
     }
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'developer'
+      );
+    }
     match /users/{userId} {
       allow read, write: if isSignedIn() && isOwner(userId);
       match /saved_listings/{listingId} {
@@ -16,7 +22,7 @@ service cloud.firestore {
     match /donations/{id} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if false;
+      allow update, delete: if isAdmin();
     }
     match /aid_resources/{id} {
       allow read: if true;
@@ -26,19 +32,27 @@ service cloud.firestore {
     match /donation_drives/{id} {
       allow read: if true;
       allow create: if isSignedIn() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ngo' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ngo')
       );
-      allow update, delete: if isSignedIn() && resource.data.ngoId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (
+        resource.data.ngoId == request.auth.uid ||
+        isAdmin()
+      );
     }
     match /micro_donations/{id} {
       allow read: if true;
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
         resource.data.requesterId == request.auth.uid ||
-        request.resource.data.fulfilledBy == request.auth.uid
+        request.resource.data.fulfilledBy == request.auth.uid ||
+        isAdmin()
       );
-      allow delete: if isSignedIn() && resource.data.requesterId == request.auth.uid;
+      allow delete: if isSignedIn() && (
+        resource.data.requesterId == request.auth.uid ||
+        isAdmin()
+      );
     }
     match /volunteer_listings/{id} {
       allow read: if true;
@@ -53,6 +67,7 @@ service cloud.firestore {
     match /e_certificates/{id} {
       allow read: if true;
       allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
     match /alerts/{id} {
       allow read: if true;

@@ -7,6 +7,7 @@ import '../../models/volunteer_listing.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
+import '../../core/theme.dart';
 
 class MatchScreen extends StatefulWidget {
   const MatchScreen({super.key});
@@ -118,67 +119,99 @@ class _MatchScreenState extends State<MatchScreen> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Your profile for matching', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          const Text('Skills', style: TextStyle(fontWeight: FontWeight.w500)),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            ..._skills.map((s) => Chip(label: Text(s), onDeleted: () => setState(() => _skills.remove(s)))),
-            SizedBox(
-              width: 120,
-              child: TextField(
-                controller: _skillInput,
-                decoration: const InputDecoration(isDense: true, hintText: 'Add skill'),
-                onSubmitted: (_) => _addSkill(),
+          // Header with gradient
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
               ),
             ),
-            IconButton(onPressed: _addSkill, icon: const Icon(Icons.add)),
-          ]),
-          const SizedBox(height: 12),
-          const Text('Interests', style: TextStyle(fontWeight: FontWeight.w500)),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            ..._interests.map((s) => Chip(label: Text(s), onDeleted: () => setState(() => _interests.remove(s)))),
-            SizedBox(
-              width: 120,
-              child: TextField(
-                controller: _interestInput,
-                decoration: const InputDecoration(isDense: true, hintText: 'Add interest'),
-                onSubmitted: (_) => _addInterest(),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Match Me',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Find opportunities that match your skills and interests',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                ),
+              ],
             ),
-            IconButton(onPressed: _addInterest, icon: const Icon(Icons.add)),
-          ]),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _availabilityController,
-            decoration: const InputDecoration(labelText: 'Availability (e.g. Weekends, Mon-Fri)'),
           ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: _loading ? null : _saveProfileAndMatch,
-            child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save & find matches'),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Your profile for matching', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                const Text('Skills', style: TextStyle(fontWeight: FontWeight.w500)),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  ..._skills.map((s) => Chip(label: Text(s), onDeleted: () => setState(() => _skills.remove(s)))),
+                  SizedBox(
+                    width: 120,
+                    child: TextField(
+                      controller: _skillInput,
+                      decoration: const InputDecoration(isDense: true, hintText: 'Add skill'),
+                      onSubmitted: (_) => _addSkill(),
+                    ),
+                  ),
+                  IconButton(onPressed: _addSkill, icon: const Icon(Icons.add)),
+                ]),
+                const SizedBox(height: 12),
+                const Text('Interests', style: TextStyle(fontWeight: FontWeight.w500)),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  ..._interests.map((s) => Chip(label: Text(s), onDeleted: () => setState(() => _interests.remove(s)))),
+                  SizedBox(
+                    width: 120,
+                    child: TextField(
+                      controller: _interestInput,
+                      decoration: const InputDecoration(isDense: true, hintText: 'Add interest'),
+                      onSubmitted: (_) => _addInterest(),
+                    ),
+                  ),
+                  IconButton(onPressed: _addInterest, icon: const Icon(Icons.add)),
+                ]),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _availabilityController,
+                  decoration: const InputDecoration(labelText: 'Availability (e.g. Weekends, Mon-Fri)'),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: _loading ? null : _saveProfileAndMatch,
+                  child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save & find matches'),
+                ),
+                const SizedBox(height: 24),
+                if (_error != null) ...[
+                  Text(_error!, style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 8),
+                ],
+                if (_matched.isNotEmpty) ...[
+                  Text('Best matches for you', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  ..._matched.take(10).map((l) => Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      title: Text(l.title),
+                      subtitle: Text('${l.organizationName ?? ""} · ${l.location ?? ""}'),
+                      trailing: const Icon(Icons.arrow_forward),
+                      onTap: () => context.go('/opportunities'),
+                    ),
+                  )),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          if (_error != null) ...[
-            Text(_error!, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 8),
-          ],
-          if (_matched.isNotEmpty) ...[
-            Text('Best matches for you', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            ..._matched.take(10).map((l) => Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                title: Text(l.title),
-                subtitle: Text('${l.organizationName ?? ""} · ${l.location ?? ""}'),
-                trailing: const Icon(Icons.arrow_forward),
-                onTap: () => context.go('/opportunities'),
-              ),
-            )),
-          ],
         ],
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:go_router/go_router.dart';
 import '../../models/micro_donation_request.dart';
 import '../../services/firestore_service.dart';
 import '../../core/theme.dart';
@@ -37,6 +38,12 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.go('/request-support'),
+        backgroundColor: figmaOrange,
+        child: const Icon(Icons.add, color: Colors.white),
+        tooltip: 'Request support',
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -53,38 +60,17 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                 ],
               ),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Image.asset(
-                  'assets/onlyvolunteer_logo.png',
-                  width: 48,
-                  height: 48,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: figmaOrange.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.list_alt, size: 24, color: figmaOrange),
-                  ),
+                const Text(
+                  'My Requests',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'My Requests',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Track your donation requests',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 4),
+                Text(
+                  'Track your donation requests',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                 ),
               ],
             ),
@@ -107,8 +93,15 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Post one from Opportunities',
+                                  'Create an opportunity to request support',
                                   style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                                ),
+                                const SizedBox(height: 16),
+                                FilledButton.icon(
+                                  onPressed: () => context.go('/request-support'),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Create Opportunity'),
+                                  style: FilledButton.styleFrom(backgroundColor: figmaOrange),
                                 ),
                               ],
                             ),

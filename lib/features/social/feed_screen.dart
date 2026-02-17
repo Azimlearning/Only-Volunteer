@@ -12,11 +12,6 @@ class FeedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openCreatePost(context),
-        child: const Icon(Icons.add),
-        tooltip: 'Create post',
-      ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirestoreService().feedPostsStream(),
         builder: (context, snapshot) {
@@ -38,13 +33,6 @@ class FeedScreen extends StatelessWidget {
     );
   }
 
-  void _openCreatePost(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _CreatePostSheet(),
-    );
-  }
 }
 
 class _FeedPostCard extends StatefulWidget {
@@ -234,82 +222,3 @@ class _AddCommentRowState extends State<_AddCommentRow> {
   }
 }
 
-class _CreatePostSheet extends StatefulWidget {
-  @override
-  State<_CreatePostSheet> createState() => _CreatePostSheetState();
-}
-
-class _CreatePostSheetState extends State<_CreatePostSheet> {
-  final _textController = TextEditingController();
-  final _imageUrlController = TextEditingController();
-  bool _saving = false;
-
-  @override
-  void dispose() {
-    _textController.dispose();
-    _imageUrlController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final text = _textController.text.trim();
-    if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter some text')));
-      return;
-    }
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sign in to post')));
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      final ref = FirebaseFirestore.instance.collection('feed_posts').doc();
-      final post = FeedPost(
-        id: ref.id,
-        authorId: uid,
-        authorName: FirebaseAuth.instance.currentUser?.displayName ?? FirebaseAuth.instance.currentUser?.email,
-        text: text,
-        imageUrl: _imageUrlController.text.trim().isEmpty ? null : _imageUrlController.text.trim(),
-        likes: 0,
-        commentCount: 0,
-        createdAt: DateTime.now(),
-      );
-      await FirestoreService().addFeedPost(post);
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Post created')));
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Create post', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            TextField(controller: _textController, decoration: const InputDecoration(hintText: 'What\'s on your mind?'), maxLines: 4),
-            const SizedBox(height: 12),
-            TextField(controller: _imageUrlController, decoration: const InputDecoration(labelText: 'Image URL (optional)')),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _saving ? null : _submit,
-              child: _saving ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Post'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

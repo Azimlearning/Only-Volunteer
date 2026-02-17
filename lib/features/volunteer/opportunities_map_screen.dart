@@ -23,6 +23,9 @@ class _OpportunitiesMapScreenState extends State<OpportunitiesMapScreen> {
   }
 
   Future<void> _load() async {
+    // Note: google.maps.Marker is deprecated as of Feb 2024 in favor of AdvancedMarkerElement
+    // The Flutter google_maps_flutter plugin will handle migration when ready
+    // Current implementation will continue working for at least 12 months
     final list = await _firestore.getVolunteerListings();
     final markers = <Marker>{};
     for (final l in list) {

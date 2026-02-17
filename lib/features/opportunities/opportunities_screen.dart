@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import '../../models/volunteer_listing.dart';
 import '../../models/micro_donation_request.dart';
+import '../../models/app_user.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../core/theme.dart';
 
@@ -22,6 +26,8 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
   List<MicroDonationRequest> _microDonations = [];
   bool _loading = true;
   _FilterMode _filter = _FilterMode.all;
+  int _currentPage = 0;
+  static const int _itemsPerPage = 8; // 4 per row x 2 rows
 
   @override
   void initState() {
@@ -30,8 +36,14 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final listings = await _firestore.getVolunteerListings();
+    setState(() {
+      _loading = true;
+      _currentPage = 0; // Reset to first page when reloading
+    });
+    // Check if user is NGO or Admin to show private opportunities
+    final auth = Provider.of<AuthNotifier>(context, listen: false);
+    final canSeePrivate = auth.appUser?.role == UserRole.ngo || auth.appUser?.role == UserRole.admin;
+    final listings = await _firestore.getVolunteerListings(showPrivate: canSeePrivate);
     final micro = await _firestore.getMicroDonations(status: 'open');
     if (mounted) {
       setState(() {
@@ -42,32 +54,6 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
     }
   }
 
-  void _openPostDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Post opportunity'),
-        content: const Text('What would you like to post?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.go('/create-opportunity');
-            },
-            child: const Text('Volunteering opportunity'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _openMicroDonationSheet();
-            },
-            style: FilledButton.styleFrom(backgroundColor: figmaOrange),
-            child: const Text('Donation request'),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _openMicroDonationSheet() {
     showModalBottomSheet<void>(
@@ -129,14 +115,9 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openPostDialog,
-        backgroundColor: figmaOrange,
-        child: const Icon(Icons.add, color: Colors.white),
-        tooltip: 'Post opportunity',
-      ),
-      body: Column(
+    return Stack(
+      children: [
+        Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header (Aid Finder style)
@@ -154,21 +135,6 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
             ),
             child: Row(
               children: [
-                Image.asset(
-                  'assets/onlyvolunteer_logo.png',
-                  width: 48,
-                  height: 48,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: figmaOrange.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.work, size: 24, color: figmaOrange),
-                  ),
-                ),
-                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,8 +192,25 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
                 : _buildContent(),
           ),
         ],
-      ),
+        ),
+      ],
     );
+  }
+
+  List<VolunteerListing> _getPaginatedListings() {
+    final start = _currentPage * _itemsPerPage;
+    final end = start + _itemsPerPage;
+    return _listings.sublist(start.clamp(0, _listings.length), end.clamp(0, _listings.length));
+  }
+
+  List<MicroDonationRequest> _getPaginatedDonations() {
+    final start = _currentPage * _itemsPerPage;
+    final end = start + _itemsPerPage;
+    return _microDonations.sublist(start.clamp(0, _microDonations.length), end.clamp(0, _microDonations.length));
+  }
+
+  int _getTotalPages(int itemCount) {
+    return (itemCount / _itemsPerPage).ceil();
   }
 
   Widget _buildContent() {
@@ -244,40 +227,101 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
       return const Center(child: Text('No donation requests yet.'));
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    // Determine which items to show based on filter
+    List<dynamic> itemsToShow;
+    if (_filter == _FilterMode.volunteering) {
+      itemsToShow = _listings;
+    } else if (_filter == _FilterMode.donations) {
+      itemsToShow = _microDonations;
+    } else {
+      // All mode - show volunteering first, then donations
+      itemsToShow = [..._listings, ..._microDonations];
+    }
+
+    final totalPages = _getTotalPages(itemsToShow.length);
+    
+    // Reset to first page if current page is out of bounds
+    if (_currentPage >= totalPages && totalPages > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _currentPage = 0);
+      });
+    }
+
+    // Get paginated items
+    final start = _currentPage * _itemsPerPage;
+    final end = start + _itemsPerPage;
+    final paginatedItems = itemsToShow.sublist(start.clamp(0, itemsToShow.length), end.clamp(0, itemsToShow.length));
+
+    return Column(
       children: [
-        if (showVolunteering && _listings.isNotEmpty) ...[
-          if (_filter == _FilterMode.all) _sectionTitle('Volunteering'),
-          ...(_filter == _FilterMode.all ? _listings.take(5) : _listings).map((l) => _VolunteerCard(
-                listing: l,
-                onApply: () => _applyListing(l),
-              )),
-          if (_filter == _FilterMode.all && _listings.length > 5)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: TextButton(
-                onPressed: () => setState(() => _filter = _FilterMode.volunteering),
-                child: const Text('View all volunteering'),
-              ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(20),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 20,
+              mainAxisSpacing: 20,
+              childAspectRatio: 0.7,
             ),
-          const SizedBox(height: 16),
-        ],
-        if (showDonations && _microDonations.isNotEmpty) ...[
-          if (_filter == _FilterMode.all) _sectionTitle('Donation requests'),
-          ...(_filter == _FilterMode.all ? _microDonations.take(5) : _microDonations).map((r) => _MicroDonationCard(
-                request: r,
-                onFulfill: () => _fulfillRequest(r),
-              )),
-          if (_filter == _FilterMode.all && _microDonations.length > 5)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: TextButton(
-                onPressed: () => setState(() => _filter = _FilterMode.donations),
-                child: const Text('View all donation requests'),
-              ),
+            itemCount: paginatedItems.length,
+            itemBuilder: (context, index) {
+              final item = paginatedItems[index];
+              if (item is VolunteerListing) {
+                return _VolunteerCard(
+                  listing: item,
+                  onApply: () => _applyListing(item),
+                );
+              } else if (item is MicroDonationRequest) {
+                return _MicroDonationCard(
+                  request: item,
+                  onFulfill: () => _fulfillRequest(item),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+        // Pagination controls
+        if (totalPages > 1)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              border: Border(top: BorderSide(color: Colors.grey[200]!)),
             ),
-        ],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(totalPages, (index) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: InkWell(
+                    onTap: () => setState(() => _currentPage = index),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: _currentPage == index ? figmaOrange : Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _currentPage == index ? figmaOrange : Colors.grey[300]!,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            color: _currentPage == index ? Colors.white : figmaBlack,
+                            fontWeight: _currentPage == index ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
       ],
     );
   }
@@ -322,42 +366,128 @@ class _VolunteerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final slotsLeft = listing.slotsTotal - listing.slotsFilled;
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image
+          Expanded(
+            flex: 4,
+            child: listing.imageUrl != null && listing.imageUrl!.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: listing.imageUrl!,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: figmaOrange,
+                          ),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.grey[200],
+                      child: Icon(Icons.volunteer_activism, size: 30, color: Colors.grey[400]),
+                    ),
+                  )
+                : Container(
+                    color: Colors.grey[200],
+                    child: Icon(Icons.volunteer_activism, size: 30, color: Colors.grey[400]),
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.volunteer_activism, color: figmaOrange, size: 20),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    listing.title,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        listing.title,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: figmaBlack),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (listing.acceptsMonetaryDonation == true)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: figmaPurple.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'RM',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: figmaPurple),
+                        ),
+                      ),
+                  ],
+                ),
+                if (listing.acceptsMonetaryDonation == true && listing.monetaryGoal != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        'Goal: RM${listing.monetaryGoal!.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      ),
+                      if (listing.monetaryRaised != null && listing.monetaryRaised! > 0) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          'Raised: RM${listing.monetaryRaised!.toStringAsFixed(0)}',
+                          style: TextStyle(fontSize: 11, color: figmaOrange, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+                if (listing.description != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    listing.description!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                  ),
+                ],
+                if (listing.location != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    listing.location!,
+                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: slotsLeft > 0 ? onApply : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: figmaOrange,
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                    ),
+                    child: Text(
+                      slotsLeft > 0 ? 'Apply' : 'Full',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                 ),
               ],
             ),
-            if (listing.description != null) ...[
-              const SizedBox(height: 4),
-              Text(listing.description!, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
-            ],
-            if (listing.location != null) ...[
-              const SizedBox(height: 6),
-              Text(listing.location!, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-            ],
-            const SizedBox(height: 8),
-            FilledButton(
-              onPressed: slotsLeft > 0 ? onApply : null,
-              style: FilledButton.styleFrom(backgroundColor: figmaOrange),
-              child: Text(slotsLeft > 0 ? 'Apply' : 'Full'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -372,48 +502,83 @@ class _MicroDonationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image placeholder
+          Expanded(
+            flex: 4,
+            child: Container(
+              color: figmaPurple.withOpacity(0.1),
+              child: Icon(Icons.card_giftcard, size: 40, color: figmaPurple),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.card_giftcard, color: figmaPurple, size: 20),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    request.title,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        request.title,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: figmaBlack),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 4),
                 Chip(
-                  label: Text(request.categoryName, style: const TextStyle(fontSize: 11)),
+                  label: Text(request.categoryName, style: const TextStyle(fontSize: 10)),
                   backgroundColor: figmaPurple.withOpacity(0.1),
                   padding: EdgeInsets.zero,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+                if (request.itemNeeded != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Needs: ${request.itemNeeded}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (request.location != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    request.location!,
+                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: onFulfill,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: figmaPurple,
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                    ),
+                    child: const Text(
+                      'Fulfill',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
                 ),
               ],
             ),
-            if (request.itemNeeded != null) ...[
-              const SizedBox(height: 4),
-              Text('Needs: ${request.itemNeeded}', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
-            ],
-            if (request.location != null) ...[
-              const SizedBox(height: 4),
-              Text(request.location!, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-            ],
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: onFulfill,
-              style: FilledButton.styleFrom(backgroundColor: figmaPurple),
-              child: const Text('Fulfill request'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

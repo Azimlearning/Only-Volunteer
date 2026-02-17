@@ -9,7 +9,10 @@
   <!-- Google Sign-In OAuth client ID for web -->
   <meta name="google-signin-client_id" content="194317521104-9cbldot31nqbnu7nhb3ckgkophj2va9u.apps.googleusercontent.com" />
   <!-- Google Maps JavaScript API -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD6kT60MgnnbN8zP-Ub9F6npU7AaIWGVgQ" defer></script>
+  <!-- Note: Marker library included for future AdvancedMarkerElement migration -->
+  <!-- As of Feb 2024, google.maps.Marker is deprecated but will continue working for at least 12 months -->
+  <!-- The Flutter google_maps_flutter plugin will handle migration when ready -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD6kT60MgnnbN8zP-Ub9F6npU7AaIWGVgQ&libraries=marker" defer></script>
   <link rel="stylesheet" href="flutter_bootstrap.js" async>
 </head>
 <body>

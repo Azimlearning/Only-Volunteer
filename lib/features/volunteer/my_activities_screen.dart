@@ -7,6 +7,7 @@ import '../../models/e_certificate.dart';
 import '../../models/donation.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
+import '../../core/theme.dart';
 
 class MyActivitiesScreen extends StatelessWidget {
   const MyActivitiesScreen({super.key});
@@ -21,6 +22,31 @@ class MyActivitiesScreen extends StatelessWidget {
       length: 3,
       child: Column(
         children: [
+          // Header with gradient
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'My Activities',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Track your volunteer hours, certificates, and donations',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                ),
+              ],
+            ),
+          ),
           const TabBar(
             tabs: [
               Tab(text: 'Attendance'),

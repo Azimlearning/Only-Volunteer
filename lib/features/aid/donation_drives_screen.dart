@@ -18,7 +18,7 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
   String? _categoryFilter;
   String? _campaignFilter; // disasterRelief, medicalHealth, communityInfrastructure, sustainedSupport
   int _currentPage = 0;
-  static const int _itemsPerPage = 6;
+  static const int _itemsPerPage = 8; // 4 per row x 2 rows
 
   void _showDriveDetail(DonationDrive d) {
     showModalBottomSheet(
@@ -233,21 +233,6 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
             ),
             child: Row(
               children: [
-                Image.asset(
-                  'assets/onlyvolunteer_logo.png',
-                  width: 48,
-                  height: 48,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: figmaOrange.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.volunteer_activism, size: 24, color: figmaOrange),
-                  ),
-                ),
-                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,91 +368,156 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
                   children: [
                     Expanded(
                       child: GridView.builder(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.75,
+                          crossAxisCount: 4,
+                          crossAxisSpacing: 20,
+                          mainAxisSpacing: 20,
+                          childAspectRatio: 0.55,
                         ),
                         itemCount: paginatedDrives.length,
                         itemBuilder: (_, i) {
                           final d = paginatedDrives[i];
+                          final progress = (d.goalAmount != null && d.goalAmount! > 0)
+                              ? (d.raisedAmount / d.goalAmount!).clamp(0.0, 1.0)
+                              : 0.0;
                           return Card(
-                      clipBehavior: Clip.antiAlias,
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: InkWell(
-                        onTap: () => _showDriveDetail(d),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Image
-                            Expanded(
-                              flex: 3,
-                              child: d.bannerUrl != null && d.bannerUrl!.isNotEmpty
-                                  ? CachedNetworkImage(
-                                      imageUrl: d.bannerUrl!,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      placeholder: (_, __) => Container(
-                                        color: Colors.grey[200],
-                                        child: const Center(child: CircularProgressIndicator()),
+                            clipBehavior: Clip.antiAlias,
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            child: InkWell(
+                              onTap: () => _showDriveDetail(d),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Image
+                                  Expanded(
+                                    flex: 5,
+                                    child: d.bannerUrl != null && d.bannerUrl!.isNotEmpty
+                                        ? CachedNetworkImage(
+                                            imageUrl: d.bannerUrl!,
+                                            width: double.infinity,
+                                            fit: BoxFit.cover,
+                                            placeholder: (_, __) => Container(
+                                              color: Colors.grey[200],
+                                              child: const Center(child: CircularProgressIndicator()),
+                                            ),
+                                            errorWidget: (_, __, ___) => Container(
+                                              color: Colors.grey[200],
+                                              child: Icon(Icons.image, size: 30, color: Colors.grey[400]),
+                                            ),
+                                          )
+                                        : Container(
+                                            color: Colors.grey[200],
+                                            child: Icon(Icons.image, size: 30, color: Colors.grey[400]),
+                                          ),
+                                  ),
+                                  // Content
+                                  Expanded(
+                                    flex: 2,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(10),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            d.title,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: figmaBlack,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (d.description != null) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              d.description!,
+                                              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                          if (d.ngoName != null) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'By ${d.ngoName}',
+                                              style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+                                            ),
+                                          ],
+                                          const Spacer(),
+                                          // Progress bar
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(4),
+                                            child: LinearProgressIndicator(
+                                              value: progress,
+                                              minHeight: 4,
+                                              backgroundColor: Colors.grey[200],
+                                              valueColor: const AlwaysStoppedAnimation(figmaOrange),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Raised: RM ${d.raisedAmount.toStringAsFixed(0)} / RM ${d.goalAmount?.toStringAsFixed(0) ?? "—"}',
+                                            style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          // Action buttons row
+                                          Row(
+                                            children: [
+                                              // Message button
+                                              IconButton(
+                                                onPressed: () {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Message feature coming soon')),
+                                                  );
+                                                },
+                                                icon: Container(
+                                                  padding: const EdgeInsets.all(4),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: figmaOrange.withOpacity(0.3)),
+                                                  ),
+                                                  child: Icon(Icons.chat_bubble_outline, size: 12, color: figmaOrange),
+                                                ),
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(),
+                                                style: IconButton.styleFrom(
+                                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              // Donate Now button
+                                              Expanded(
+                                                child: FilledButton(
+                                                  onPressed: () => _showDriveDetail(d),
+                                                  style: FilledButton.styleFrom(
+                                                    backgroundColor: figmaOrange,
+                                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                                    minimumSize: Size.zero,
+                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                  ),
+                                                  child: const Text(
+                                                    'Donate Now',
+                                                    style: TextStyle(fontSize: 10),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
-                                      errorWidget: (_, __, ___) => Container(
-                                        color: Colors.grey[200],
-                                        child: Icon(Icons.image, size: 40, color: Colors.grey[400]),
-                                      ),
-                                    )
-                                  : Container(
-                                      color: Colors.grey[200],
-                                      child: Icon(Icons.image, size: 40, color: Colors.grey[400]),
                                     ),
-                            ),
-                            // Content
-                            Expanded(
-                              flex: 2,
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      d.title,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: figmaBlack,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const Spacer(),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: FilledButton(
-                                        onPressed: () => _showDriveDetail(d),
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor: figmaOrange,
-                                          padding: const EdgeInsets.symmetric(vertical: 8),
-                                        ),
-                                        child: const Text(
-                                          'View Details',
-                                          style: TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    );
-                          },
-                        ),
-                      ),
+                    ),
                     // Pagination controls
                     if (totalPages > 1)
                       Container(

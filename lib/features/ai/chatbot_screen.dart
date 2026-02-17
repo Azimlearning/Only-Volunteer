@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/config.dart';
+import '../../core/theme.dart';
 import '../../models/app_user.dart';
 import '../../services/gemini_service.dart';
 import '../../services/firestore_service.dart';
@@ -145,12 +146,34 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        // Header with gradient
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
+            ),
+          ),
           child: Row(
             children: [
-              const Text('AI Assistant', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              const Spacer(),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'AI Chatbot',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Get personalized recommendations and answers',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                    ),
+                  ],
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 tooltip: 'New chat',

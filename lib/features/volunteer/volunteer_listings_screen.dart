@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/volunteer_listing.dart';
 import '../../services/firestore_service.dart';
 import '../../core/theme.dart';
@@ -257,98 +258,131 @@ class _VolunteerListingsScreenState extends State<VolunteerListingsScreen> {
                             margin: const EdgeInsets.only(bottom: 12),
                             elevation: 2,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
+                            clipBehavior: Clip.antiAlias,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Image
+                                if (l.imageUrl != null && l.imageUrl!.isNotEmpty)
+                                  SizedBox(
+                                    height: 150,
+                                    width: double.infinity,
+                                    child: CachedNetworkImage(
+                                      imageUrl: l.imageUrl!,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        color: Colors.grey[200],
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: figmaOrange,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      errorWidget: (context, url, error) => Container(
+                                        color: Colors.grey[200],
+                                        child: Icon(Icons.volunteer_activism, size: 40, color: Colors.grey[400]),
+                                      ),
+                                    ),
+                                  ),
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              l.title,
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: figmaBlack,
-                                              ),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  l.title,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: figmaBlack,
+                                                  ),
+                                                ),
+                                                if (l.description != null) ...[
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    l.description!,
+                                                    maxLines: 2,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                                                  ),
+                                                ],
+                                                if (l.organizationName != null || l.location != null) ...[
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    '${l.organizationName ?? ""}${l.organizationName != null && l.location != null ? " · " : ""}${l.location ?? ""}',
+                                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
-                                            if (l.description != null) ...[
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                l.description!,
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                                              ),
-                                            ],
-                                            if (l.organizationName != null || l.location != null) ...[
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                '${l.organizationName ?? ""}${l.organizationName != null && l.location != null ? " · " : ""}${l.location ?? ""}',
-                                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border),
+                                            color: isSaved ? figmaOrange : Colors.grey,
+                                            onPressed: () => _toggleSaved(l),
+                                          ),
+                                        ],
                                       ),
-                                      IconButton(
-                                        icon: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border),
-                                        color: isSaved ? figmaOrange : Colors.grey,
-                                        onPressed: () => _toggleSaved(l),
+                                      if (l.skillsRequired.isNotEmpty) ...[
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 4,
+                                          runSpacing: 4,
+                                          children: l.skillsRequired.take(3).map((skill) => Chip(
+                                            label: Text(skill, style: const TextStyle(fontSize: 11)),
+                                            padding: EdgeInsets.zero,
+                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            visualDensity: VisualDensity.compact,
+                                            backgroundColor: figmaOrange.withOpacity(0.1),
+                                          )).toList(),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Slots: $slotsLeft / ${l.slotsTotal}',
+                                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                          ),
+                                          if (slotsLeft > 0)
+                                            FilledButton(
+                                              onPressed: () => _apply(context, l.id),
+                                              style: FilledButton.styleFrom(
+                                                backgroundColor: figmaOrange,
+                                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                              ),
+                                              child: const Text('Apply Now'),
+                                            )
+                                          else
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey[300],
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: const Text('Full', style: TextStyle(color: Colors.grey)),
+                                            ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                  if (l.skillsRequired.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Wrap(
-                                      spacing: 4,
-                                      runSpacing: 4,
-                                      children: l.skillsRequired.take(3).map((skill) => Chip(
-                                        label: Text(skill, style: const TextStyle(fontSize: 11)),
-                                        padding: EdgeInsets.zero,
-                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                        visualDensity: VisualDensity.compact,
-                                        backgroundColor: figmaOrange.withOpacity(0.1),
-                                      )).toList(),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Slots: $slotsLeft / ${l.slotsTotal}',
-                                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                      ),
-                                      if (slotsLeft > 0)
-                                        FilledButton(
-                                          onPressed: () => _apply(context, l.id),
-                                          style: FilledButton.styleFrom(
-                                            backgroundColor: figmaOrange,
-                                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                                          ),
-                                          child: const Text('Apply Now'),
-                                        )
-                                      else
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[300],
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: const Text('Full', style: TextStyle(color: Colors.grey)),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          );
+                        );
                                 },
                               ),
                             ),

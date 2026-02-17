@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+enum RequestVisibility { public, private }
+
 class VolunteerListing {
   VolunteerListing({
     required this.id,
@@ -15,8 +17,15 @@ class VolunteerListing {
     this.endTime,
     this.slotsTotal = 0,
     this.slotsFilled = 0,
+    this.imageUrl,
     this.createdAt,
     this.updatedAt,
+    this.visibility = RequestVisibility.public,
+    this.isRegisteredWithJKM,
+    this.isB40Household,
+    this.acceptsMonetaryDonation = false,
+    this.monetaryGoal,
+    this.monetaryRaised = 0,
   });
 
   final String id;
@@ -32,11 +41,20 @@ class VolunteerListing {
   final DateTime? endTime;
   final int slotsTotal;
   final int slotsFilled;
+  final String? imageUrl;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final RequestVisibility visibility;
+  final bool? isRegisteredWithJKM;
+  final bool? isB40Household;
+  final bool? acceptsMonetaryDonation;
+  final double? monetaryGoal;
+  final double? monetaryRaised;
 
   factory VolunteerListing.fromFirestore(DocumentSnapshot doc) {
     final m = doc.data() as Map<String, dynamic>? ?? {};
+    final visibilityStr = m['visibility'] as String? ?? 'public';
+    final visibility = visibilityStr == 'private' ? RequestVisibility.private : RequestVisibility.public;
     return VolunteerListing(
       id: doc.id,
       title: m['title'] as String? ?? '',
@@ -51,8 +69,15 @@ class VolunteerListing {
       endTime: (m['endTime'] as Timestamp?)?.toDate(),
       slotsTotal: (m['slotsTotal'] as num?)?.toInt() ?? 0,
       slotsFilled: (m['slotsFilled'] as num?)?.toInt() ?? 0,
+      imageUrl: m['imageUrl'] as String?,
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (m['updatedAt'] as Timestamp?)?.toDate(),
+      visibility: visibility,
+      isRegisteredWithJKM: m['isRegisteredWithJKM'] as bool?,
+      isB40Household: m['isB40Household'] as bool?,
+      acceptsMonetaryDonation: m['acceptsMonetaryDonation'] as bool? ?? false,
+      monetaryGoal: (m['monetaryGoal'] as num?)?.toDouble(),
+      monetaryRaised: (m['monetaryRaised'] as num?)?.toDouble() ?? 0,
     );
   }
 
@@ -70,8 +95,15 @@ class VolunteerListing {
       'endTime': endTime != null ? Timestamp.fromDate(endTime!) : null,
       'slotsTotal': slotsTotal,
       'slotsFilled': slotsFilled,
+      'imageUrl': imageUrl,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'visibility': visibility.name,
+      'isRegisteredWithJKM': isRegisteredWithJKM,
+      'isB40Household': isB40Household,
+      'acceptsMonetaryDonation': acceptsMonetaryDonation,
+      'monetaryGoal': monetaryGoal,
+      'monetaryRaised': monetaryRaised ?? 0,
     };
   }
 }

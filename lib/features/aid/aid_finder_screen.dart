@@ -1,9 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/aid_resource.dart';
 import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
@@ -67,6 +66,9 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
   }
 
   void _updateMapMarkers() {
+    // Note: google.maps.Marker is deprecated as of Feb 2024 in favor of AdvancedMarkerElement
+    // The Flutter google_maps_flutter plugin will handle migration when ready
+    // Current implementation will continue working for at least 12 months
     final markers = <Marker>{};
     for (final r in _filtered) {
       if (r.lat != null && r.lng != null) {
@@ -128,18 +130,6 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
     if (mounted) setState(() => _contextualHint = hint);
   }
 
-  void _openSubmitAidRequest() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _SubmitAidRequestSheet(
-        onSubmitted: () {
-          Navigator.pop(context);
-          _load();
-        },
-      ),
-    );
-  }
 
   Future<void> _openMaps(AidResource r) async {
     if (r.lat == null || r.lng == null) return;
@@ -238,12 +228,6 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openSubmitAidRequest,
-        backgroundColor: figmaOrange,
-        child: const Icon(Icons.add, color: Colors.white),
-        tooltip: 'Submit aid request',
-      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -257,38 +241,17 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                 colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
               ),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Image.asset(
-                  'assets/onlyvolunteer_logo.png',
-                  width: 48,
-                  height: 48,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: figmaOrange.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.search, size: 24, color: figmaOrange),
-                  ),
+                const Text(
+                  'Aid Finder',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Aid Finder',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Find and request aid resources in your area',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 4),
+                Text(
+                  'Find and request aid resources in your area',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                 ),
               ],
             ),
@@ -402,12 +365,12 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                                 children: [
                                   Expanded(
                                     child: GridView.builder(
-                                      padding: const EdgeInsets.all(16),
+                                      padding: const EdgeInsets.all(20),
                                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                         crossAxisCount: 2,
-                                        crossAxisSpacing: 16,
-                                        mainAxisSpacing: 16,
-                                        childAspectRatio: 0.85,
+                                        crossAxisSpacing: 20,
+                                        mainAxisSpacing: 20,
+                                        childAspectRatio: 0.82,
                                       ),
                                       itemCount: _paginatedItems.length,
                                       itemBuilder: (_, i) {
@@ -573,72 +536,98 @@ class _AidCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Image placeholder
+              // Image
               Expanded(
-                flex: 4,
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.image, size: 24, color: Colors.grey[400]),
-                ),
+                flex: 5,
+                child: resource.imageUrl != null && resource.imageUrl!.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: CachedNetworkImage(
+                          imageUrl: resource.imageUrl!,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: Colors.grey[200],
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: figmaOrange,
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey[200],
+                            child: Icon(Icons.image, size: 20, color: Colors.grey[400]),
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(Icons.image, size: 20, color: Colors.grey[400]),
+                      ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               // Title
               Text(
                 resource.title,
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: figmaBlack,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               // Location with distance
               if (resource.location != null)
                 Row(
                   children: [
-                    Icon(Icons.location_on, size: 12, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
+                    Icon(Icons.location_on, size: 11, color: Colors.grey[600]),
+                    const SizedBox(width: 3),
                     Expanded(
                       child: Text(
                         distance.isNotEmpty
                             ? '$distance • ${resource.location!}'
                             : resource.location!,
-                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               // Type (Category)
               if (resource.category != null)
                 Text(
                   'Item Type: ${resource.category}',
-                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 9, color: Colors.grey[600]),
                 ),
-              const SizedBox(height: 2),
-              // Operating Hours (placeholder - can be added to model later)
+              const SizedBox(height: 1),
+              // Operating Hours
               Text(
                 'Operating Hours: 10am - 10pm',
-                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 9, color: Colors.grey[600]),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 1),
               // Eligibility
               Text(
                 'Walk In',
-                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 9, color: Colors.grey[600]),
               ),
               const Spacer(),
               // Action buttons row
@@ -647,20 +636,18 @@ class _AidCard extends StatelessWidget {
                   // Message button
                   IconButton(
                     onPressed: () {
-                      // TODO: Implement message functionality
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Message feature coming soon')),
                       );
                     },
-                    tooltip: 'Message',
                     icon: Container(
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(5),
                         border: Border.all(color: figmaOrange.withOpacity(0.3)),
                       ),
-                      child: Icon(Icons.chat_bubble_outline, size: 16, color: figmaOrange),
+                      child: Icon(Icons.chat_bubble_outline, size: 14, color: figmaOrange),
                     ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -668,47 +655,45 @@ class _AidCard extends StatelessWidget {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   // Map/Location button
                   if (resource.lat != null && resource.lng != null)
                     IconButton(
                       onPressed: () async {
-                        // Open in maps
                         final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${resource.lat},${resource.lng}');
                         if (await canLaunchUrl(uri)) {
                           await launchUrl(uri, mode: LaunchMode.externalApplication);
                         }
                       },
                       icon: Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(5),
                           border: Border.all(color: figmaOrange.withOpacity(0.3)),
                         ),
-                        child: Icon(Icons.map_outlined, size: 16, color: figmaOrange),
+                        child: Icon(Icons.map_outlined, size: 14, color: figmaOrange),
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       style: IconButton.styleFrom(
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      tooltip: 'Open in Maps',
                     ),
-                  if (resource.lat != null && resource.lng != null) const SizedBox(width: 6),
+                  if (resource.lat != null && resource.lng != null) const SizedBox(width: 4),
                   // Check Eligibility button
                   Expanded(
                     child: FilledButton(
                       onPressed: onTap,
                       style: FilledButton.styleFrom(
                         backgroundColor: figmaOrange,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       child: const Text(
                         'Check Eligibility',
-                        style: TextStyle(fontSize: 11),
+                        style: TextStyle(fontSize: 10),
                       ),
                     ),
                   ),
@@ -722,121 +707,3 @@ class _AidCard extends StatelessWidget {
   }
 }
 
-class _SubmitAidRequestSheet extends StatefulWidget {
-  const _SubmitAidRequestSheet({required this.onSubmitted});
-
-  final VoidCallback onSubmitted;
-
-  @override
-  State<_SubmitAidRequestSheet> createState() => _SubmitAidRequestSheetState();
-}
-
-class _SubmitAidRequestSheetState extends State<_SubmitAidRequestSheet> {
-  final _titleController = TextEditingController();
-  final _descController = TextEditingController();
-  final _locationController = TextEditingController();
-  final _latController = TextEditingController();
-  final _lngController = TextEditingController();
-  String? _category;
-  AidUrgency _urgency = AidUrgency.medium;
-  bool _saving = false;
-
-  static const _submitCategories = ['Food', 'Clothing', 'Shelter', 'Medical', 'Education', 'Hygiene', 'Transport'];
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descController.dispose();
-    _locationController.dispose();
-    _latController.dispose();
-    _lngController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final title = _titleController.text.trim();
-    if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a title')));
-      return;
-    }
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    setState(() => _saving = true);
-    try {
-      final ref = FirebaseFirestore.instance.collection('aid_resources').doc();
-      final lat = double.tryParse(_latController.text.trim());
-      final lng = double.tryParse(_lngController.text.trim());
-      final resource = AidResource(
-        id: ref.id,
-        title: title,
-        description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
-        category: _category,
-        location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
-        urgency: _urgency,
-        ownerId: uid,
-        lat: lat,
-        lng: lng,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      await FirestoreService().addAidResource(resource);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Aid request submitted')));
-        widget.onSubmitted();
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Submit aid request', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Title *')),
-            const SizedBox(height: 12),
-            TextField(controller: _descController, decoration: const InputDecoration(labelText: 'Description'), maxLines: 2),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _category,
-              decoration: const InputDecoration(labelText: 'Category'),
-              items: _submitCategories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (v) => setState(() => _category = v),
-            ),
-            const SizedBox(height: 12),
-            TextField(controller: _locationController, decoration: const InputDecoration(labelText: 'Location')),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: TextField(controller: _latController, decoration: const InputDecoration(labelText: 'Latitude (optional)'), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
-                const SizedBox(width: 12),
-                Expanded(child: TextField(controller: _lngController, decoration: const InputDecoration(labelText: 'Longitude (optional)'), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
-              ],
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<AidUrgency>(
-              value: _urgency,
-              decoration: const InputDecoration(labelText: 'Urgency'),
-              items: AidUrgency.values.map((u) => DropdownMenuItem(value: u, child: Text(u.name))).toList(),
-              onChanged: (v) => setState(() => _urgency = v ?? AidUrgency.medium),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _saving ? null : _submit,
-              child: _saving ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Submit'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

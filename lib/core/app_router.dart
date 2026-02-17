@@ -8,6 +8,7 @@ import '../features/aid/create_drive_screen.dart';
 import '../features/volunteer/volunteer_listings_screen.dart';
 import '../features/opportunities/opportunities_screen.dart';
 import '../features/opportunities/my_requests_screen.dart';
+import '../features/opportunities/request_support_screen.dart';
 import '../features/volunteer/create_opportunity_screen.dart';
 import '../features/volunteer/my_activities_screen.dart';
 import '../features/volunteer/opportunities_map_screen.dart';
@@ -16,9 +17,11 @@ import '../features/gamification/leaderboard_screen.dart';
 import '../features/analytics/analytics_screen.dart';
 import '../features/ai/chatbot_screen.dart';
 import '../features/ai/alerts_screen.dart';
+import '../features/common/work_in_progress_screen.dart';
+import '../features/common/about_us_screen.dart';
+import '../features/common/profile_screen.dart';
 import '../features/ai/match_screen.dart';
 import '../features/admin/developer_screen.dart';
-import '../features/support/request_support_screen.dart';
 import '../app/app_shell.dart';
 import '../providers/auth_provider.dart';
 
@@ -62,15 +65,41 @@ GoRouter createAppRouter(AuthNotifier authNotifier) {
           GoRoute(path: '/opportunities', builder: (_, __) => const OpportunitiesScreen()),
           GoRoute(path: '/my-requests', builder: (_, __) => const MyRequestsScreen()),
           GoRoute(path: '/create-opportunity', builder: (_, __) => const CreateOpportunityScreen()),
+          GoRoute(path: '/request-support', builder: (_, __) => const RequestSupportScreen()),
           GoRoute(path: '/map', builder: (_, __) => const OpportunitiesMapScreen()),
           GoRoute(path: '/my-activities', builder: (_, __) => const MyActivitiesScreen()),
-          GoRoute(path: '/feed', builder: (_, __) => const FeedScreen()),
-          GoRoute(path: '/leaderboard', builder: (_, __) => const LeaderboardScreen()),
-          GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
+          GoRoute(
+            path: '/feed',
+            builder: (_, __) => const WorkInProgressScreen(
+              title: 'Feed',
+              description: 'The Feed feature is currently under development. Check back soon!',
+            ),
+          ),
+          GoRoute(
+            path: '/leaderboard',
+            builder: (_, __) => const WorkInProgressScreen(
+              title: 'Leaderboard',
+              description: 'The Leaderboard feature is currently under development. Check back soon!',
+            ),
+          ),
+          GoRoute(
+            path: '/analytics',
+            builder: (_, __) => const WorkInProgressScreen(
+              title: 'Analytics',
+              description: 'The Analytics feature is currently under development. Check back soon!',
+            ),
+          ),
           GoRoute(path: '/chatbot', builder: (_, __) => const ChatbotScreen()),
-          GoRoute(path: '/alerts', builder: (_, __) => const AlertsScreen()),
+          GoRoute(
+            path: '/alerts',
+            builder: (_, __) => const WorkInProgressScreen(
+              title: 'Alerts',
+              description: 'The Alerts feature is currently under development. Check back soon!',
+            ),
+          ),
           GoRoute(path: '/match', builder: (_, __) => const MatchScreen()),
-          GoRoute(path: '/request-support', builder: (_, __) => const RequestSupportScreen()),
+          GoRoute(path: '/about-us', builder: (_, __) => const AboutUsScreen()),
+          GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
           GoRoute(path: '/developer', builder: (_, __) => const DeveloperScreen()),
         ],
       ),

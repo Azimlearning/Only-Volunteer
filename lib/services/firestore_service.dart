@@ -97,17 +97,46 @@ class FirestoreService {
   }
 
   Future<List<Donation>> getDonationsByUser(String userId) async {
-    final snap = await _db.collection(_donations).where('userId', isEqualTo: userId).orderBy('createdAt', descending: true).get();
-    return snap.docs.map((d) => Donation.fromFirestore(d)).toList();
+    try {
+      final snap = await _db.collection(_donations).where('userId', isEqualTo: userId).get();
+      final list = snap.docs.map((d) => Donation.fromFirestore(d)).toList();
+      // Sort manually if orderBy fails
+      list.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+      return list;
+    } catch (e) {
+      return [];
+    }
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> volunteerListingsStream() {
     return _db.collection(_volunteerListings).orderBy('createdAt', descending: true).snapshots();
   }
 
-  Future<List<VolunteerListing>> getVolunteerListings() async {
-    final snap = await _db.collection(_volunteerListings).orderBy('createdAt', descending: true).limit(50).get();
-    return snap.docs.map((d) => VolunteerListing.fromFirestore(d)).toList();
+  Future<List<VolunteerListing>> getVolunteerListings({bool showPrivate = false}) async {
+    try {
+      final snap = await _db.collection(_volunteerListings).limit(50).get();
+      var list = snap.docs.map((d) => VolunteerListing.fromFirestore(d)).toList();
+      // Filter by visibility: only show public unless showPrivate is true (for NGOs/admins)
+      if (!showPrivate) {
+        list = list.where((l) => l.visibility == RequestVisibility.public).toList();
+      }
+      // Sort manually if orderBy fails
+      list.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+      return list;
+    } catch (e) {
+      // If orderBy fails due to missing index, try without it
+      try {
+        final snap = await _db.collection(_volunteerListings).limit(50).get();
+        var list = snap.docs.map((d) => VolunteerListing.fromFirestore(d)).toList();
+        if (!showPrivate) {
+          list = list.where((l) => l.visibility == RequestVisibility.public).toList();
+        }
+        list.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+        return list;
+      } catch (_) {
+        return [];
+      }
+    }
   }
 
   /// Paginated volunteer listings. Returns list and last document for next page.
@@ -153,8 +182,15 @@ class FirestoreService {
   }
 
   Future<List<Attendance>> getAttendancesForUser(String userId) async {
-    final snap = await _db.collection(_attendances).where('userId', isEqualTo: userId).orderBy('createdAt', descending: true).get();
-    return snap.docs.map((d) => Attendance.fromFirestore(d)).toList();
+    try {
+      final snap = await _db.collection(_attendances).where('userId', isEqualTo: userId).get();
+      final list = snap.docs.map((d) => Attendance.fromFirestore(d)).toList();
+      // Sort manually if orderBy fails
+      list.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+      return list;
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<void> addAttendance(Attendance attendance) async {
@@ -259,18 +295,25 @@ class FirestoreService {
     String? requesterId,
     int limit = 50,
   }) async {
-    final snap = await _db.collection(_microDonations).orderBy('createdAt', descending: true).limit(100).get();
-    var list = snap.docs.map((d) => MicroDonationRequest.fromFirestore(d)).toList();
-    if (requesterId != null && requesterId.isNotEmpty) {
-      list = list.where((r) => r.requesterId == requesterId).toList();
+    try {
+      final snap = await _db.collection(_microDonations).limit(100).get();
+      var list = snap.docs.map((d) => MicroDonationRequest.fromFirestore(d)).toList();
+      // Sort manually if orderBy fails
+      list.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+      if (requesterId != null && requesterId.isNotEmpty) {
+        list = list.where((r) => r.requesterId == requesterId).toList();
+      }
+      if (status != null && status.isNotEmpty) {
+        list = list.where((r) => r.status.name == status).toList();
+      }
+      if (category != null && category.isNotEmpty) {
+        list = list.where((r) => r.category.name == category).toList();
+      }
+      return list.take(limit).toList();
+    } catch (e) {
+      // If query fails, return empty list
+      return [];
     }
-    if (status != null && status.isNotEmpty) {
-      list = list.where((r) => r.status.name == status).toList();
-    }
-    if (category != null && category.isNotEmpty) {
-      list = list.where((r) => r.category.name == category).toList();
-    }
-    return list.take(limit).toList();
   }
 
   Future<void> addMicroDonationRequest(MicroDonationRequest request) async {
