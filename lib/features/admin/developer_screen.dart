@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:go_router/go_router.dart';
 import '../../services/seed_data_service.dart';
 import '../../core/theme.dart';
+import 'test_functions_screen.dart';
 
 class DeveloperScreen extends StatefulWidget {
   const DeveloperScreen({super.key});
@@ -235,6 +237,19 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
                             ),
                           ),
                         ],
+                        const SizedBox(height: 20),
+                        const Divider(),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: () => context.go('/test-functions'),
+                          icon: const Icon(Icons.bug_report),
+                          label: const Text('Test Cloud Functions'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: figmaPurple,
+                            side: BorderSide(color: figmaPurple),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
                       ],
                     ),
                   ),

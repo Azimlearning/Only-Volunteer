@@ -1,12 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
+import '../../core/theme.dart';
 
-class AnalyticsScreen extends StatelessWidget {
+class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
+
+  @override
+  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+}
+
+class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  String? _descriptiveInsights;
+  String? _prescriptiveInsights;
+  bool _loadingInsights = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAIInsights();
+  }
+
+  Future<void> _loadAIInsights() async {
+    setState(() => _loadingInsights = true);
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('generateAIInsights');
+      final result = await callable.call();
+      setState(() {
+        _descriptiveInsights = result.data['descriptive'] as String?;
+        _prescriptiveInsights = result.data['prescriptive'] as String?;
+        _loadingInsights = false;
+      });
+    } catch (e) {
+      print('Error loading AI insights: $e');
+      setState(() => _loadingInsights = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +63,35 @@ class AnalyticsScreen extends StatelessWidget {
     return FutureBuilder<Map<String, dynamic>>(
       future: _loadAnalytics(),
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text('Error loading analytics: ${snapshot.error}', 
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        // Trigger rebuild
+                      });
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final data = snapshot.data!;
         final counts = data['counts'] as Map<String, int>;
@@ -39,7 +101,17 @@ class AnalyticsScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Analytics', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Analytics', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: Icon(_loadingInsights ? Icons.refresh : Icons.auto_awesome),
+                    onPressed: _loadingInsights ? null : _loadAIInsights,
+                    tooltip: 'Generate AI Insights',
+                  ),
+                ],
+              ),
               const SizedBox(height: 24),
               GridView.count(
                 shrinkWrap: true,
@@ -90,6 +162,44 @@ class AnalyticsScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (_descriptiveInsights != null || _prescriptiveInsights != null) ...[
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.auto_awesome, color: figmaOrange),
+                          const SizedBox(width: 8),
+                          const Text('AI Insights', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      if (_descriptiveInsights != null) ...[
+                        const SizedBox(height: 16),
+                        const Text('What Happened:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        Text(_descriptiveInsights!, style: const TextStyle(height: 1.5)),
+                      ],
+                      if (_prescriptiveInsights != null) ...[
+                        const SizedBox(height: 16),
+                        const Text('Recommendations:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        Text(_prescriptiveInsights!, style: const TextStyle(height: 1.5)),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         );
@@ -98,9 +208,36 @@ class AnalyticsScreen extends StatelessWidget {
   }
 
   Future<Map<String, dynamic>> _loadAnalytics() async {
-    final counts = await FirestoreService().getAnalyticsCounts();
-    final totalDonations = await FirestoreService().getTotalDonations();
-    return {'counts': counts, 'totalDonations': totalDonations};
+    try {
+      final counts = await FirestoreService().getAnalyticsCounts().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => {
+          'users': 0,
+          'listings': 0,
+          'drives': 0,
+          'certificates': 0,
+          'attendances': 0,
+        },
+      );
+      final totalDonations = await FirestoreService().getTotalDonations().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => 0.0,
+      );
+      return {'counts': counts, 'totalDonations': totalDonations};
+    } catch (e) {
+      print('Error loading analytics: $e');
+      // Return default values on error
+      return {
+        'counts': {
+          'users': 0,
+          'listings': 0,
+          'drives': 0,
+          'certificates': 0,
+          'attendances': 0,
+        },
+        'totalDonations': 0.0,
+      };
+    }
   }
 }
 

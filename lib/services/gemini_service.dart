@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../core/config.dart';
 import '../models/app_user.dart';
 import '../models/donation_drive.dart';
@@ -274,5 +276,21 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
       userMessage: userMessage,
       fallbackMessage: fallbackMessage,
     );
+  }
+
+  /// RAG-powered chat using Cloud Functions (with semantic search)
+  Future<String> chatWithRAG(String message, String userId) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('chatWithRAG');
+      final result = await callable.call({
+        'message': message,
+        'userId': userId,
+      });
+      return result.data['response'] as String? ?? Config.chatbotFallbackMessage;
+    } catch (e) {
+      print('RAG chat error: $e');
+      // Fallback to regular chat
+      return chat(message);
+    }
   }
 }

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../../models/app_user.dart';
 import '../../models/volunteer_listing.dart';
 import '../../providers/auth_provider.dart';
@@ -16,10 +18,39 @@ class MatchScreen extends StatefulWidget {
   State<MatchScreen> createState() => _MatchScreenState();
 }
 
+class _MatchResult {
+  final String id;
+  final String title;
+  final String? organizationName;
+  final String? location;
+  final int matchScore;
+  final String matchExplanation;
+
+  _MatchResult({
+    required this.id,
+    required this.title,
+    this.organizationName,
+    this.location,
+    required this.matchScore,
+    required this.matchExplanation,
+  });
+
+  factory _MatchResult.fromMap(Map<String, dynamic> map) {
+    return _MatchResult(
+      id: map['id'] as String,
+      title: map['title'] as String,
+      organizationName: map['organizationName'] as String?,
+      location: map['location'] as String?,
+      matchScore: (map['matchScore'] as num?)?.toInt() ?? 0,
+      matchExplanation: map['matchExplanation'] as String? ?? 'Good match',
+    );
+  }
+}
+
 class _MatchScreenState extends State<MatchScreen> {
   final FirestoreService _firestore = FirestoreService();
   final GeminiService _gemini = GeminiService();
-  List<VolunteerListing> _matched = [];
+  List<_MatchResult> _matched = [];
   bool _loading = true;
   String? _error;
   List<String> _skills = [];
@@ -79,20 +110,63 @@ class _MatchScreenState extends State<MatchScreen> {
         createdAt: user.createdAt,
       );
       await _firestore.setUser(updatedUser);
-      final listings = await _firestore.getVolunteerListings();
-      final ids = await _gemini.matchListingsForUser(updatedUser, listings);
-      final idSet = ids.toSet();
-      final ordered = <VolunteerListing>[];
-      for (final id in ids) {
-        final found = listings.cast<VolunteerListing?>().firstWhere((e) => e?.id == id, orElse: () => null);
-        if (found != null) ordered.add(found);
-      }
-      for (final l in listings) {
-        if (!idSet.contains(l.id)) ordered.add(l);
-      }
-      if (mounted) {
-        Provider.of<AuthNotifier>(context, listen: false).refreshAppUser();
-        setState(() { _matched = ordered; _loading = false; });
+
+      // Try Cloud Function first, fallback to local matching
+      try {
+        final callable = FirebaseFunctions.instance.httpsCallable('matchVolunteerToActivities');
+        final result = await callable.call({'userId': uid}).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () => throw TimeoutException('Matching timed out after 30 seconds'),
+        );
+        final matches = (result.data as List)
+            .map((m) => _MatchResult.fromMap(Map<String, dynamic>.from(m)))
+            .toList();
+        if (mounted) {
+          Provider.of<AuthNotifier>(context, listen: false).refreshAppUser();
+          setState(() {
+            _matched = matches;
+            _loading = false;
+          });
+        }
+      } catch (cfError) {
+        // Fallback to local matching
+        print('Cloud Function error, using local matching: $cfError');
+        final listings = await _firestore.getVolunteerListings();
+        final ids = await _gemini.matchListingsForUser(updatedUser, listings);
+        final idSet = ids.toSet();
+        final ordered = <_MatchResult>[];
+        for (final id in ids) {
+          final found = listings.cast<VolunteerListing?>().firstWhere((e) => e?.id == id, orElse: () => null);
+          if (found != null) {
+            ordered.add(_MatchResult(
+              id: found.id,
+              title: found.title,
+              organizationName: found.organizationName,
+              location: found.location,
+              matchScore: 75, // Default score
+              matchExplanation: 'Matched based on your skills and interests',
+            ));
+          }
+        }
+        for (final l in listings) {
+          if (!idSet.contains(l.id)) {
+            ordered.add(_MatchResult(
+              id: l.id,
+              title: l.title,
+              organizationName: l.organizationName,
+              location: l.location,
+              matchScore: 50,
+              matchExplanation: 'Available opportunity',
+            ));
+          }
+        }
+        if (mounted) {
+          Provider.of<AuthNotifier>(context, listen: false).refreshAppUser();
+          setState(() {
+            _matched = ordered;
+            _loading = false;
+          });
+        }
       }
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _loading = false; });
@@ -118,6 +192,10 @@ class _MatchScreenState extends State<MatchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading && _matched.isEmpty && _error == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -199,13 +277,61 @@ class _MatchScreenState extends State<MatchScreen> {
                 if (_matched.isNotEmpty) ...[
                   Text('Best matches for you', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
-                  ..._matched.take(10).map((l) => Card(
+                  ..._matched.take(10).map((match) => Card(
                     margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      title: Text(l.title),
-                      subtitle: Text('${l.organizationName ?? ""} · ${l.location ?? ""}'),
-                      trailing: const Icon(Icons.arrow_forward),
+                    child: InkWell(
                       onTap: () => context.go('/opportunities'),
+                      child: ExpansionTile(
+                        title: Text(match.title),
+                        subtitle: Text('${match.organizationName ?? ""} · ${match.location ?? ""}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Chip(
+                              label: Text('${match.matchScore}%'),
+                              backgroundColor: match.matchScore >= 75
+                                  ? Colors.green.withOpacity(0.2)
+                                  : match.matchScore >= 50
+                                      ? Colors.orange.withOpacity(0.2)
+                                      : Colors.grey.withOpacity(0.2),
+                              labelStyle: TextStyle(
+                                color: match.matchScore >= 75
+                                    ? Colors.green
+                                    : match.matchScore >= 50
+                                        ? Colors.orange
+                                        : Colors.grey,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward),
+                          ],
+                        ),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.auto_awesome, size: 16, color: figmaOrange),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Why this matches:',
+                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  match.matchExplanation,
+                                  style: TextStyle(color: Colors.grey[700]),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   )),
                 ],

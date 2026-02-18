@@ -25,10 +25,11 @@ class MyActivitiesScreen extends StatelessWidget {
           // Header with gradient
           Container(
             padding: const EdgeInsets.all(20),
+            width: double.infinity,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
                 colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
               ),
             ),

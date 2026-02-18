@@ -22,6 +22,7 @@ import '../features/common/about_us_screen.dart';
 import '../features/common/profile_screen.dart';
 import '../features/ai/match_screen.dart';
 import '../features/admin/developer_screen.dart';
+import '../features/admin/test_functions_screen.dart';
 import '../app/app_shell.dart';
 import '../providers/auth_provider.dart';
 
@@ -82,25 +83,14 @@ GoRouter createAppRouter(AuthNotifier authNotifier) {
               description: 'The Leaderboard feature is currently under development. Check back soon!',
             ),
           ),
-          GoRoute(
-            path: '/analytics',
-            builder: (_, __) => const WorkInProgressScreen(
-              title: 'Analytics',
-              description: 'The Analytics feature is currently under development. Check back soon!',
-            ),
-          ),
+          GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
           GoRoute(path: '/chatbot', builder: (_, __) => const ChatbotScreen()),
-          GoRoute(
-            path: '/alerts',
-            builder: (_, __) => const WorkInProgressScreen(
-              title: 'Alerts',
-              description: 'The Alerts feature is currently under development. Check back soon!',
-            ),
-          ),
+          GoRoute(path: '/alerts', builder: (_, __) => const AlertsScreen()),
           GoRoute(path: '/match', builder: (_, __) => const MatchScreen()),
           GoRoute(path: '/about-us', builder: (_, __) => const AboutUsScreen()),
           GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
           GoRoute(path: '/developer', builder: (_, __) => const DeveloperScreen()),
+          GoRoute(path: '/test-functions', builder: (_, __) => const TestFunctionsScreen()),
         ],
       ),
     ],

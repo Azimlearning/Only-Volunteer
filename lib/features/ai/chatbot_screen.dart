@@ -109,7 +109,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
     String reply;
     try {
-      reply = await _gemini.chat(trimmed);
+      // Use RAG chat if user is authenticated, otherwise fallback to regular chat
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null && _appUser != null) {
+        reply = await _gemini.chatWithRAG(trimmed, uid);
+      } else {
+        reply = await _gemini.chat(trimmed);
+      }
     } catch (_) {
       reply = Config.chatbotFallbackMessage;
     }

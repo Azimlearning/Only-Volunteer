@@ -13,8 +13,12 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'developer'
       );
     }
+    function isNgo() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ngo';
+    }
     match /users/{userId} {
-      allow read, write: if isSignedIn() && isOwner(userId);
+      allow read, write: if isSignedIn() && (isOwner(userId) || isAdmin() || isNgo());
       match /saved_listings/{listingId} {
         allow read, write: if isSignedIn() && isOwner(userId);
       }
