@@ -12,7 +12,12 @@ admin.initializeApp({
 });
 
 // Get config from environment or Firebase config
-const geminiApiKey = process.env.GEMINI_API_KEY || 'AIzaSyD9I8ZLMRmtaRwyq0EylLIq8rNDgt58_uQ';
+const geminiApiKey = process.env.GEMINI_API_KEY;
+if (!geminiApiKey) {
+  console.error('✗ Error: GEMINI_API_KEY environment variable is required');
+  console.error('   Set it with: export GEMINI_API_KEY=your_key');
+  process.exit(1);
+}
 const projectId = process.env.GCLOUD_PROJECT || 'onlyvolunteer-e3066';
 
 const gemini = new GoogleGenerativeAI(geminiApiKey);

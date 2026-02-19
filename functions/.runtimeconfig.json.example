@@ -1,0 +1,11 @@
+{
+  "gcp": {
+    "project_id": "your-project-id"
+  },
+  "news": {
+    "api_key": "your-news-api-key"
+  },
+  "gemini": {
+    "api_key": "your-gemini-api-key"
+  }
+}
