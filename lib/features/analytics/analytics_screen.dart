@@ -97,22 +97,77 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         final counts = data['counts'] as Map<String, int>;
         final totalDonations = data['totalDonations'] as double;
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Analytics', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                  IconButton(
-                    icon: Icon(_loadingInsights ? Icons.refresh : Icons.auto_awesome),
-                    onPressed: _loadingInsights ? null : _loadAIInsights,
-                    tooltip: 'Generate AI Insights',
+              // Page header - Figma / KitaHack 2026 style
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(kPagePadding, 20, kPagePadding, 24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      figmaPurple.withOpacity(0.08),
+                      figmaOrange.withOpacity(0.08),
+                    ],
                   ),
-                ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: figmaPurple.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(kCardRadius),
+                      ),
+                      child: const Icon(Icons.bar_chart_rounded, color: figmaPurple, size: 28),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Analytics',
+                            style: TextStyle(
+                              fontSize: kHeaderTitleSize,
+                              fontWeight: FontWeight.bold,
+                              color: figmaBlack,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Platform metrics and AI-generated insights',
+                            style: TextStyle(
+                              fontSize: kHeaderSubtitleSize,
+                              color: Colors.grey[700],
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton.filled(
+                      onPressed: _loadingInsights ? null : _loadAIInsights,
+                      icon: Icon(_loadingInsights ? Icons.hourglass_empty : Icons.auto_awesome),
+                      tooltip: 'Generate AI Insights',
+                      style: IconButton.styleFrom(
+                        backgroundColor: figmaOrange,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.all(kPagePadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+              const SizedBox(height: 8),
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -154,52 +209,69 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     gridData: const FlGridData(show: true),
                     borderData: FlBorderData(show: false),
                     barGroups: [
-                      BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: (counts['users'] ?? 0).toDouble(), color: Colors.blue)]),
-                      BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: (counts['listings'] ?? 0).toDouble(), color: Colors.green)]),
-                      BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: (counts['drives'] ?? 0).toDouble(), color: Colors.orange)]),
-                      BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: (counts['certificates'] ?? 0).toDouble(), color: Colors.purple)]),
+                      BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: (counts['users'] ?? 0).toDouble(), color: figmaOrange)]),
+                      BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: (counts['listings'] ?? 0).toDouble(), color: figmaPurple)]),
+                      BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: (counts['drives'] ?? 0).toDouble(), color: figmaOrange.withOpacity(0.8))]),
+                      BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: (counts['certificates'] ?? 0).toDouble(), color: figmaPurple.withOpacity(0.8))]),
                     ],
                   ),
                 ),
               ),
               if (_descriptiveInsights != null || _prescriptiveInsights != null) ...[
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
+                      colors: [
+                        figmaOrange.withOpacity(0.08),
+                        figmaPurple.withOpacity(0.08),
+                      ],
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(kCardRadius),
+                    border: Border.all(color: figmaOrange.withOpacity(0.25), width: 1),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.auto_awesome, color: figmaOrange),
-                          const SizedBox(width: 8),
-                          const Text('AI Insights', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: figmaOrange.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.auto_awesome, color: figmaOrange, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'AI Insights',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: figmaBlack),
+                          ),
                         ],
                       ),
                       if (_descriptiveInsights != null) ...[
                         const SizedBox(height: 16),
-                        const Text('What Happened:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        const Text('What Happened:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: figmaBlack)),
                         const SizedBox(height: 8),
-                        Text(_descriptiveInsights!, style: const TextStyle(height: 1.5)),
+                        Text(_descriptiveInsights!, style: TextStyle(height: 1.5, color: Colors.grey[800])),
                       ],
                       if (_prescriptiveInsights != null) ...[
                         const SizedBox(height: 16),
-                        const Text('Recommendations:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        const Text('Recommendations:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: figmaBlack)),
                         const SizedBox(height: 8),
-                        Text(_prescriptiveInsights!, style: const TextStyle(height: 1.5)),
+                        Text(_prescriptiveInsights!, style: TextStyle(height: 1.5, color: Colors.grey[800])),
                       ],
                     ],
                   ),
                 ),
               ],
+                  ],
+                ),
+              ),
             ],
           ),
         );
@@ -251,15 +323,31 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardRadius),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 40, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 8),
-            Text(value, style: Theme.of(context).textTheme.headlineSmall),
-            Text(title, textAlign: TextAlign.center),
+            Icon(icon, size: 36, color: figmaOrange),
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: figmaBlack,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            ),
           ],
         ),
       ),

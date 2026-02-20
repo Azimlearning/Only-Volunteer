@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
 import '../core/config.dart';
 import '../models/app_user.dart';
 import '../models/donation_drive.dart';
@@ -291,6 +295,95 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
       print('RAG chat error: $e');
       // Fallback to regular chat
       return chat(message);
+    }
+  }
+
+  /// Main AI orchestrator: routes to tools (alerts, analytics, matching, aidfinder) and formats with Gemini.
+  /// On web, uses HTTP endpoint with CORS to avoid callable CORS issues.
+  Future<String> chatWithOrchestrator(String message, String userId, {String pageContext = 'chat'}) async {
+    if (kIsWeb) {
+      return _chatWithOrchestratorHttp(message, userId, pageContext: pageContext);
+    }
+    return _chatWithOrchestratorCallable(message, userId, pageContext: pageContext);
+  }
+
+  /// Web: call HTTP endpoint with CORS so browser allows the request.
+  Future<String> _chatWithOrchestratorHttp(String message, String userId, {String pageContext = 'chat'}) async {
+    try {
+      final projectId = Firebase.app().options.projectId ?? 'onlyvolunteer-e3066';
+      final url = Uri.parse(
+        'https://us-central1-$projectId.cloudfunctions.net/handleAIRequestHttp',
+      );
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final body = jsonEncode({
+        'userId': userId,
+        'message': message,
+        'pageContext': pageContext,
+        'autoExecute': false,
+      });
+      print('Calling handleAIRequestHttp (web) with userId: $userId');
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              if (idToken != null) 'Authorization': 'Bearer $idToken',
+            },
+            body: body,
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => throw TimeoutException('handleAIRequestHttp timed out'),
+          );
+      if (response.statusCode != 200) {
+        print('handleAIRequestHttp error: ${response.statusCode} ${response.body}');
+        return _fallbackToRagOrDirect(message, userId);
+      }
+      final data = jsonDecode(response.body) as Map<String, dynamic>?;
+      final text = data?['text'] as String?;
+      if (text != null && text.isNotEmpty) return text;
+      return _fallbackToRagOrDirect(message, userId);
+    } catch (e) {
+      print('Orchestrator HTTP error: $e');
+      return _fallbackToRagOrDirect(message, userId);
+    }
+  }
+
+  Future<String> _fallbackToRagOrDirect(String message, String userId) async {
+    try {
+      return chatWithRAG(message, userId);
+    } catch (e) {
+      print('RAG fallback failed: $e');
+      return chat(message);
+    }
+  }
+
+  /// Non-web (mobile/desktop): use callable.
+  Future<String> _chatWithOrchestratorCallable(String message, String userId, {String pageContext = 'chat'}) async {
+    try {
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+      final callable = functions.httpsCallable('handleAIRequest');
+      final result = await callable
+          .call({
+            'userId': userId,
+            'message': message,
+            'pageContext': pageContext,
+            'autoExecute': false,
+          })
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => throw TimeoutException('handleAIRequest timed out'),
+          );
+      final data = result.data as Map<String, dynamic>?;
+      final text = data?['text'] as String?;
+      if (text != null && text.isNotEmpty) return text;
+      return _fallbackToRagOrDirect(message, userId);
+    } on FirebaseFunctionsException catch (e) {
+      print('Orchestrator callable error: ${e.code} ${e.message}');
+      return _fallbackToRagOrDirect(message, userId);
+    } catch (e) {
+      print('Orchestrator callable error: $e');
+      return _fallbackToRagOrDirect(message, userId);
     }
   }
 }

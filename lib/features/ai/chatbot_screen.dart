@@ -109,15 +109,30 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
     String reply;
     try {
-      // Use RAG chat if user is authenticated, otherwise fallback to regular chat
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null && _appUser != null) {
-        reply = await _gemini.chatWithRAG(trimmed, uid);
+        // Main AI: orchestrator (tools: alerts, analytics, matching, aidfinder) with fallback to RAG
+        reply = await _gemini.chatWithOrchestrator(trimmed, uid, pageContext: 'chat');
       } else {
+        // Not signed in - use regular chat
         reply = await _gemini.chat(trimmed);
       }
-    } catch (_) {
-      reply = Config.chatbotFallbackMessage;
+    } catch (e) {
+      print('Chatbot error: $e');
+      print('Error type: ${e.runtimeType}');
+      // Try RAG fallback if orchestrator fails
+      try {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          print('Falling back to RAG chat...');
+          reply = await _gemini.chatWithRAG(trimmed, uid);
+        } else {
+          reply = await _gemini.chat(trimmed);
+        }
+      } catch (fallbackError) {
+        print('Fallback also failed: $fallbackError');
+        reply = Config.chatbotFallbackMessage;
+      }
     }
     if (mounted) {
       setState(() {
@@ -152,38 +167,64 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header with gradient
+        // Page header - Figma / KitaHack 2026 style
         Container(
-          padding: const EdgeInsets.all(20),
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(kPagePadding, 20, kPagePadding, 24),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
+              colors: [
+                figmaOrange.withOpacity(0.08),
+                figmaPurple.withOpacity(0.08),
+              ],
             ),
           ),
           child: Row(
             children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: figmaOrange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(kCardRadius),
+                ),
+                child: const Icon(Icons.smart_toy_rounded, color: figmaOrange, size: 28),
+              ),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'AI Chatbot',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
+                      style: TextStyle(
+                        fontSize: kHeaderTitleSize,
+                        fontWeight: FontWeight.bold,
+                        color: figmaBlack,
+                        letterSpacing: -0.5,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Get personalized recommendations and answers',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                      'Ask anything — alerts, insights, matching, nearby aid',
+                      style: TextStyle(
+                        fontSize: kHeaderSubtitleSize,
+                        color: Colors.grey[700],
+                        height: 1.3,
+                      ),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                tooltip: 'New chat',
+              IconButton.filled(
                 onPressed: _initialized && !_loading ? _startNewChat : null,
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: 'New chat',
+                style: IconButton.styleFrom(
+                  backgroundColor: figmaPurple,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ],
           ),
@@ -193,7 +234,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               ? const Center(child: CircularProgressIndicator())
               : ListView(
                   controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: kPagePadding),
                   children: [
                     if (_messages.isEmpty) ...[
                       Padding(
@@ -204,13 +245,17 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                         ),
                       ),
                       Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                        spacing: 10,
+                        runSpacing: 10,
                         children: _suggestionChips.map((label) {
                           return ActionChip(
                             label: Text(label),
                             onPressed: _loading ? null : () => _send(label),
-                            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                            backgroundColor: figmaOrange.withOpacity(0.12),
+                            side: BorderSide(color: figmaOrange.withOpacity(0.4)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(kCardRadius),
+                            ),
                           );
                         }).toList(),
                       ),
@@ -235,14 +280,24 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                             child: ConstrainedBox(
                               constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                                 decoration: BoxDecoration(
                                   color: isUser
-                                      ? Theme.of(context).colorScheme.primaryContainer
-                                      : Colors.grey[200],
+                                      ? figmaOrange.withOpacity(0.15)
+                                      : Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(16),
+                                  border: isUser
+                                      ? Border.all(color: figmaOrange.withOpacity(0.3))
+                                      : null,
                                 ),
-                                child: Text(content, style: TextStyle(height: 1.4, color: isUser ? null : Colors.black87)),
+                                child: Text(
+                                  content,
+                                  style: TextStyle(
+                                    height: 1.4,
+                                    color: isUser ? figmaBlack : Colors.black87,
+                                    fontSize: 15,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -274,8 +329,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   ],
                 ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(8),
+        Container(
+          padding: const EdgeInsets.fromLTRB(kPagePadding, 12, kPagePadding, 20),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -283,10 +342,23 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 child: TextField(
                   controller: _controller,
                   decoration: InputDecoration(
-                    hintText: 'Ask the concierge...',
+                    hintText: 'Ask about alerts, insights, matching, nearby aid...',
                     counterText: '',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(kCardRadius),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(kCardRadius),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(kCardRadius),
+                      borderSide: const BorderSide(color: figmaOrange, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   ),
                   maxLength: Config.chatbotMaxInputLength,
                   maxLines: null,
@@ -294,10 +366,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   onSubmitted: (_) => _send(_controller.text),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               IconButton.filled(
                 onPressed: _loading ? null : () => _send(_controller.text),
-                icon: const Icon(Icons.send),
+                icon: const Icon(Icons.send_rounded),
+                style: IconButton.styleFrom(
+                  backgroundColor: figmaOrange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(14),
+                ),
               ),
             ],
           ),
@@ -318,12 +395,33 @@ class _RecommendationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDrive = type == 'drive';
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardRadius),
+        side: BorderSide(color: figmaOrange.withOpacity(0.25)),
+      ),
       child: ListTile(
-        leading: Icon(isDrive ? Icons.volunteer_activism : Icons.work, color: Theme.of(context).colorScheme.primary),
-        title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
-        subtitle: Text(isDrive ? 'Donation drive' : 'Volunteer opportunity'),
-        trailing: const Icon(Icons.arrow_forward),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: figmaOrange.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(isDrive ? Icons.volunteer_activism : Icons.work_rounded, color: figmaOrange, size: 22),
+        ),
+        title: Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w600, color: figmaBlack),
+        ),
+        subtitle: Text(
+          isDrive ? 'Donation drive' : 'Volunteer opportunity',
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: figmaOrange),
         onTap: () {
           if (isDrive) {
             context.go('/drives');

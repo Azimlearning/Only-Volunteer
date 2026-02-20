@@ -53,27 +53,60 @@ class AlertsScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header
+        // Page header - Figma / KitaHack 2026 style
         Container(
-          padding: const EdgeInsets.all(20),
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(kPagePadding, 20, kPagePadding, 24),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
+              colors: [
+                figmaOrange.withOpacity(0.08),
+                figmaPurple.withOpacity(0.08),
+              ],
             ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Emergency Alerts',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Real-time alerts from AI news monitoring',
-                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: figmaOrange.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(kCardRadius),
+                    ),
+                    child: const Icon(Icons.notifications_active, color: figmaOrange, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Emergency Alerts',
+                          style: TextStyle(
+                            fontSize: kHeaderTitleSize,
+                            fontWeight: FontWeight.bold,
+                            color: figmaBlack,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Real-time alerts from AI news monitoring',
+                          style: TextStyle(
+                            fontSize: kHeaderSubtitleSize,
+                            color: Colors.grey[700],
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -140,7 +173,7 @@ class AlertsScreen extends StatelessWidget {
               }
 
               return ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(kPagePadding),
                 itemCount: activeAlerts.length,
                 itemBuilder: (_, i) {
                   final a = activeAlerts[i];
@@ -148,19 +181,19 @@ class AlertsScreen extends StatelessWidget {
                   final severityColor = _getSeverityColor(a.severity);
                   
                   return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    elevation: 2,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: typeColor.withOpacity(0.3), width: 1),
+                      borderRadius: BorderRadius.circular(kCardRadius),
+                      side: BorderSide(color: typeColor.withOpacity(0.35), width: 1.5),
                     ),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(kCardRadius),
                       onTap: () {
                         // Could navigate to alert details if needed
                       },
                       child: Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

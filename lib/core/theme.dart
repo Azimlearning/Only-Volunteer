@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 
-// Figma color palette
+// Figma color palette - KitaHack 2026
 const Color figmaOrange = Color(0xFFFF691C);
 const Color figmaPurple = Color(0xFF8100DE);
 const Color figmaBlack = Color(0xFF333333);
+
+// Page layout (Figma-inspired)
+const double kPagePadding = 24.0;
+const double kCardRadius = 12.0;
+const double kHeaderTitleSize = 22.0;
+const double kHeaderSubtitleSize = 14.0;
 
 final ThemeData appTheme = ThemeData(
   useMaterial3: true,

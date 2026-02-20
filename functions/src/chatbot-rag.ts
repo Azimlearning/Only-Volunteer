@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { VertexAI } from '@google-cloud/vertexai';
 
 const gemini = new GoogleGenerativeAI(functions.config().gemini?.api_key || '');
-const geminiModel = gemini.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const geminiModel = gemini.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 // Initialize Vertex AI for embeddings
 let vertexAI: VertexAI | null = null;

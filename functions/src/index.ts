@@ -7,3 +7,4 @@ export * from './news-alerts';
 export * from './chatbot-rag';
 export * from './analytics';
 export * from './skill-matching';
+export * from './orchestrator';

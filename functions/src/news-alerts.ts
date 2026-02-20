@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 
 const gemini = new GoogleGenerativeAI(functions.config().gemini?.api_key || '');
-const model = gemini.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const model = gemini.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 // Scheduled function: runs every 15 minutes
 export const monitorNewsForAlerts = functions.pubsub
