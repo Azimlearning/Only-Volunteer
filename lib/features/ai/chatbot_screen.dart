@@ -21,8 +21,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final List<MapEntry<bool, String>> _messages = [];
-  List<Map<String, String>> _recommendations = [];
   List<String> _lastSuggestions = [];
+  String? _lastToolUsed;
+  dynamic _lastToolData;
   bool _loading = false;
   bool _initialized = false;
   AppUser? _appUser;
@@ -32,8 +33,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   static const _suggestionChips = [
     'Where can I help today?',
     'Find donation drives',
-    'How do I earn e-certificates?',
     'What are current alerts?',
+    'Suggest things I can do',
   ];
 
   @override
@@ -62,24 +63,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       locationSummary: _locationSummary,
       recentActivitySummary: _recentActivitySummary,
     );
-    _loadRecommendations();
     if (mounted) setState(() => _initialized = true);
-  }
-
-  Future<void> _loadRecommendations() async {
-    if (_appUser == null) return;
-    try {
-      final drives = await _firestore.getDonationDrives();
-      final listings = await _firestore.getVolunteerListings();
-      final recs = await _gemini.getConciergeRecommendations(
-        user: _appUser!,
-        drives: drives,
-        listings: listings,
-        locationSummary: _locationSummary,
-        limit: 5,
-      );
-      if (mounted) setState(() => _recommendations = recs);
-    } catch (_) {}
   }
 
   void _startNewChat() {
@@ -90,10 +74,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
     setState(() {
       _messages.clear();
-      _recommendations = [];
       _lastSuggestions = [];
+      _lastToolUsed = null;
+      _lastToolData = null;
     });
-    _loadRecommendations();
   }
 
   Future<void> _send(String text) async {
@@ -113,12 +97,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
     String reply;
     List<String> suggestions = [];
+    String? toolUsed;
+    dynamic toolData;
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null && _appUser != null) {
         final result = await _gemini.chatWithOrchestratorFull(trimmed, uid, pageContext: 'chat');
         reply = result.text;
         suggestions = result.suggestions ?? [];
+        toolUsed = result.toolUsed;
+        toolData = result.data;
       } else {
         reply = await _gemini.chat(trimmed);
       }
@@ -145,6 +133,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       setState(() {
         _messages.add(MapEntry(false, reply));
         _lastSuggestions = suggestions;
+        _lastToolUsed = toolUsed;
+        _lastToolData = toolData;
         _loading = false;
       });
       _scrollToBottom();
@@ -161,6 +151,112 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         );
       }
     });
+  }
+
+  Widget _buildUserIdentityBlock() {
+    final name = _appUser?.displayName ?? _appUser?.email ?? 'User';
+    return Center(
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 32,
+            backgroundColor: figmaPurple.withOpacity(0.2),
+            child: Text(
+              name.isNotEmpty ? name[0].toUpperCase() : '?',
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: figmaPurple),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            name,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: figmaBlack),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'New Chat',
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildToolResultCards(BuildContext context) {
+    final list = <Widget>[
+      const SizedBox(height: 12),
+    ];
+    final tool = _lastToolUsed!;
+    final data = _lastToolData is Map ? _lastToolData as Map<String, dynamic> : null;
+    if (data == null) return list;
+
+    if (tool == 'aidfinder') {
+      final nearbyAid = data['nearbyAid'];
+      if (nearbyAid is List && nearbyAid.isNotEmpty) {
+        list.add(Text('Nearby aid', style: Theme.of(context).textTheme.titleSmall));
+        list.add(const SizedBox(height: 8));
+        for (final item in nearbyAid) {
+          if (item is! Map) continue;
+          final id = item['id']?.toString() ?? '';
+          final title = item['title']?.toString() ?? '';
+          final category = item['category']?.toString();
+          final location = item['location']?.toString();
+          list.add(_AidSuggestionCard(
+            id: id,
+            title: title,
+            category: category,
+            location: location,
+          ));
+          list.add(const SizedBox(height: 8));
+        }
+      }
+    } else if (tool == 'donation_drives') {
+      final drives = data['drives'];
+      if (drives is List && drives.isNotEmpty) {
+        list.add(Text('Suggested for you', style: Theme.of(context).textTheme.titleSmall));
+        list.add(const SizedBox(height: 8));
+        for (final item in drives) {
+          if (item is! Map) continue;
+          list.add(_RecommendationCard(
+            type: 'drive',
+            id: item['id']?.toString() ?? '',
+            title: item['title']?.toString() ?? 'Donation drive',
+          ));
+          list.add(const SizedBox(height: 8));
+        }
+      }
+    } else if (tool == 'matching') {
+      final topMatches = data['topMatches'];
+      if (topMatches is List && topMatches.isNotEmpty) {
+        list.add(Text('Suggested for you', style: Theme.of(context).textTheme.titleSmall));
+        list.add(const SizedBox(height: 8));
+        for (final item in topMatches) {
+          if (item is! Map) continue;
+          list.add(_RecommendationCard(
+            type: 'activity',
+            id: item['id']?.toString() ?? '',
+            title: item['title']?.toString() ?? 'Volunteer opportunity',
+          ));
+          list.add(const SizedBox(height: 8));
+        }
+      }
+    } else if (tool == 'alerts') {
+      final activeAlerts = data['activeAlerts'];
+      if (activeAlerts is List && activeAlerts.isNotEmpty) {
+        list.add(Text('Current alerts', style: Theme.of(context).textTheme.titleSmall));
+        list.add(const SizedBox(height: 8));
+        for (final item in activeAlerts) {
+          if (item is! Map) continue;
+          list.add(_AlertSuggestionCard(
+            id: item['id']?.toString() ?? '',
+            title: item['title']?.toString() ?? 'Alert',
+            region: item['region']?.toString(),
+            severity: item['severity']?.toString(),
+          ));
+          list.add(const SizedBox(height: 8));
+        }
+      }
+    }
+    return list;
   }
 
   @override
@@ -245,6 +341,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: kPagePadding),
                   children: [
                     if (_messages.isEmpty) ...[
+                      if (_appUser != null) ...[
+                        _buildUserIdentityBlock(),
+                        const SizedBox(height: 20),
+                      ],
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Text(
@@ -259,24 +359,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                           return ActionChip(
                             label: Text(label),
                             onPressed: _loading ? null : () => _send(label),
-                            backgroundColor: figmaOrange.withOpacity(0.12),
-                            side: BorderSide(color: figmaOrange.withOpacity(0.4)),
+                            backgroundColor: figmaPurple.withOpacity(0.08),
+                            side: BorderSide(color: figmaPurple),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(kCardRadius),
                             ),
                           );
                         }).toList(),
                       ),
-                      if (_recommendations.isNotEmpty) ...[
-                        const SizedBox(height: 20),
-                        Text('Suggested for you', style: Theme.of(context).textTheme.titleSmall),
-                        const SizedBox(height: 8),
-                        ..._recommendations.map((r) => _RecommendationCard(
-                              type: r['type']!,
-                              id: r['id']!,
-                              title: r['title']!,
-                            )),
-                      ],
                     ] else ...[
                       ..._messages.asMap().entries.map((entry) {
                         final isUser = entry.value.key;
@@ -343,15 +433,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                             ),
                           ),
                         ),
-                      if (_recommendations.isNotEmpty && _messages.length >= 2) ...[
-                        const SizedBox(height: 12),
-                        Text('Suggested for you', style: Theme.of(context).textTheme.titleSmall),
-                        const SizedBox(height: 8),
-                        ..._recommendations.map((r) => _RecommendationCard(
-                              type: r['type']!,
-                              id: r['id']!,
-                              title: r['title']!,
-                            )),
+                      if (_lastToolUsed != null && _lastToolData != null) ...[
+                        ..._buildToolResultCards(context),
                       ],
                     ],
                   ],
@@ -367,8 +450,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 return ActionChip(
                   label: Text(label),
                   onPressed: _loading ? null : () => _send(label),
-                  backgroundColor: figmaOrange.withOpacity(0.12),
-                  side: BorderSide(color: figmaOrange.withOpacity(0.4)),
+                  backgroundColor: figmaPurple.withOpacity(0.08),
+                  side: BorderSide(color: figmaPurple),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(kCardRadius),
                   ),
@@ -385,11 +468,19 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              IconButton(
+                onPressed: _loading ? null : _startNewChat,
+                icon: const Icon(Icons.add_circle_outline),
+                color: figmaPurple,
+                tooltip: 'New chat',
+              ),
               Expanded(
                 child: TextField(
                   controller: _controller,
                   decoration: InputDecoration(
-                    hintText: 'Ask about alerts, insights, matching, nearby aid...',
+                    hintText: _messages.isEmpty
+                        ? 'Ask for help, get information, create a volunteer task or more!'
+                        : 'Ask me anything...',
                     counterText: '',
                     filled: true,
                     fillColor: Colors.white,
@@ -476,6 +567,110 @@ class _RecommendationCard extends StatelessWidget {
             context.go('/opportunities');
           }
         },
+      ),
+    );
+  }
+}
+
+class _AidSuggestionCard extends StatelessWidget {
+  const _AidSuggestionCard({
+    required this.id,
+    required this.title,
+    this.category,
+    this.location,
+  });
+
+  final String id;
+  final String title;
+  final String? category;
+  final String? location;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardRadius),
+        side: BorderSide(color: figmaOrange.withOpacity(0.25)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: figmaOrange.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(Icons.handshake_rounded, color: figmaOrange, size: 22),
+        ),
+        title: Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w600, color: figmaBlack),
+        ),
+        subtitle: Text(
+          [
+            if (category != null && category!.isNotEmpty) category,
+            if (location != null && location!.isNotEmpty) location,
+          ].join(' · '),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: figmaOrange),
+        onTap: () => context.go('/finder'),
+      ),
+    );
+  }
+}
+
+class _AlertSuggestionCard extends StatelessWidget {
+  const _AlertSuggestionCard({
+    required this.id,
+    required this.title,
+    this.region,
+    this.severity,
+  });
+
+  final String id;
+  final String title;
+  final String? region;
+  final String? severity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardRadius),
+        side: BorderSide(color: figmaOrange.withOpacity(0.25)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: figmaOrange.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(Icons.warning_amber_rounded, color: figmaOrange, size: 22),
+        ),
+        title: Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w600, color: figmaBlack),
+        ),
+        subtitle: Text(
+          [
+            if (region != null && region!.isNotEmpty) region,
+            if (severity != null && severity!.isNotEmpty) severity,
+          ].join(' · '),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: figmaOrange),
+        onTap: () => context.go('/alerts'),
       ),
     );
   }

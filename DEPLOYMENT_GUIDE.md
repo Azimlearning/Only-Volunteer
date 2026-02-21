@@ -15,8 +15,9 @@ npm install
 # Get your Gemini API key from https://aistudio.google.com/apikey
 firebase functions:config:set gemini.api_key="YOUR_GEMINI_KEY"
 
-# Get NewsAPI key from https://newsapi.org (optional, for news alerts)
-firebase functions:config:set news.api_key="YOUR_NEWS_KEY"
+# GNews API key from https://gnews.io (for news alerts; used by monitorNewsForAlerts + triggerNewsAlerts)
+# Set in Cloud: gcloud functions deploy ... --update-env-vars GNEWS_API_KEY=...
+firebase functions:config:set gnews.api_key="YOUR_GNEWS_KEY"
 
 # Your Firebase project ID (usually auto-detected)
 firebase functions:config:set gcp.project_id="YOUR_PROJECT_ID"
@@ -107,8 +108,35 @@ The Flutter app is already integrated! Just ensure:
 
 ### monitorNewsForAlerts
 - **Type**: Scheduled (every 15 minutes)
-- **Auto-runs**: Yes
-- **Manual trigger**: `firebase functions:shell > monitorNewsForAlerts()`
+- **Auto-runs**: Yes (uses GNews API, not NewsAPI)
+- **Env**: `GNEWS_API_KEY`, `GEMINI_API_KEY` (set via gcloud for 1st-gen)
+
+### triggerNewsAlerts
+- **Type**: HTTP (GET/POST) — for admin "Generate Now" in the Alerts screen
+- **URL**: `https://us-central1-YOUR_PROJECT.cloudfunctions.net/triggerNewsAlerts`
+- **CORS**: Enabled for Flutter web
+- **Env**: Same as `monitorNewsForAlerts` — `GNEWS_API_KEY`, `GEMINI_API_KEY`
+
+**Deploy alerts functions and set env vars (from project root):**
+
+```powershell
+cd c:\Users\User\Documents\Coding\Hackathon\OnlyVolunteer
+npm run build --prefix functions
+firebase deploy --only functions:triggerNewsAlerts,functions:monitorNewsForAlerts
+```
+
+Then set API keys for the deployed functions (required for GNews + Gemini). **In PowerShell, wrap the env vars in double quotes** so the comma is preserved:
+
+```powershell
+gcloud functions deploy monitorNewsForAlerts --update-env-vars "GNEWS_API_KEY=YOUR_GNEWS_KEY,GEMINI_API_KEY=YOUR_GEMINI_KEY" --region us-central1 --source=functions
+gcloud functions deploy triggerNewsAlerts --update-env-vars "GNEWS_API_KEY=YOUR_GNEWS_KEY,GEMINI_API_KEY=YOUR_GEMINI_KEY" --region us-central1 --source=functions
+```
+
+Check logs for the scheduled run:
+
+```powershell
+firebase functions:log --only monitorNewsForAlerts
+```
 
 ## Troubleshooting
 

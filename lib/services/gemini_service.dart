@@ -11,12 +11,21 @@ import '../models/app_user.dart';
 import '../models/donation_drive.dart';
 import '../models/volunteer_listing.dart';
 
-/// Result from the orchestrator (text + optional follow-up suggestion chips).
+/// Result from the orchestrator (text + optional tool result and suggestion chips).
 class OrchestratorResult {
-  const OrchestratorResult({required this.text, this.suggestions});
+  const OrchestratorResult({
+    required this.text,
+    this.suggestions,
+    this.toolUsed,
+    this.data,
+  });
 
   final String text;
   final List<String>? suggestions;
+  /// Tool that produced the response (e.g. alerts, donation_drives, aidfinder, matching).
+  final String? toolUsed;
+  /// Raw tool payload for rendering type-specific cards (e.g. nearbyAid, drives, activeAlerts).
+  final dynamic data;
 }
 
 class GeminiService {
@@ -356,13 +365,20 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
       }
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
       final text = data?['text'] as String?;
+      final toolUsed = data?['toolUsed'] as String?;
+      final toolData = data?['data'];
       List<String>? suggestions;
       final raw = data?['suggestions'];
       if (raw is List) {
         suggestions = raw.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
       }
       if (text != null && text.isNotEmpty) {
-        return OrchestratorResult(text: text, suggestions: suggestions?.isNotEmpty == true ? suggestions : null);
+        return OrchestratorResult(
+          text: text,
+          suggestions: suggestions?.isNotEmpty == true ? suggestions : null,
+          toolUsed: toolUsed,
+          data: toolData,
+        );
       }
       final fallback = await _fallbackToRagOrDirect(message, userId);
       return OrchestratorResult(text: fallback, suggestions: []);
@@ -400,13 +416,20 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
           );
       final data = result.data as Map<String, dynamic>?;
       final text = data?['text'] as String?;
+      final toolUsed = data?['toolUsed'] as String?;
+      final toolData = data?['data'];
       List<String>? suggestions;
       final raw = data?['suggestions'];
       if (raw is List) {
         suggestions = raw.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
       }
       if (text != null && text.isNotEmpty) {
-        return OrchestratorResult(text: text, suggestions: suggestions?.isNotEmpty == true ? suggestions : null);
+        return OrchestratorResult(
+          text: text,
+          suggestions: suggestions?.isNotEmpty == true ? suggestions : null,
+          toolUsed: toolUsed,
+          data: toolData,
+        );
       }
       final fallback = await _fallbackToRagOrDirect(message, userId);
       return OrchestratorResult(text: fallback, suggestions: []);

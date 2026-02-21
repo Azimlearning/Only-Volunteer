@@ -10,6 +10,7 @@ class AppUser {
     this.displayName,
     this.photoUrl,
     this.role = UserRole.volunteer,
+    this.location,
     this.skills = const [],
     this.interests = const [],
     this.points = 0,
@@ -22,6 +23,8 @@ class AppUser {
   final String? displayName;
   final String? photoUrl;
   final UserRole role;
+  /// User's state/region in Malaysia (e.g. "Selangor") for alert prioritization; null or "Not set" = Malaysia-wide.
+  final String? location;
   final List<String> skills;
   final List<String> interests;
   final int points;
@@ -36,6 +39,7 @@ class AppUser {
       displayName: m['displayName'] as String?,
       photoUrl: m['photoUrl'] as String?,
       role: _roleFrom(m['role']),
+      location: m['location'] as String?,
       skills: List<String>.from(m['skills'] ?? []),
       interests: List<String>.from(m['interests'] ?? []),
       points: (m['points'] as num?)?.toInt() ?? 0,
@@ -68,6 +72,7 @@ class AppUser {
       'displayName': displayName,
       'photoUrl': photoUrl,
       'role': role.name,
+      'location': location,
       'skills': skills,
       'interests': interests,
       'points': points,
