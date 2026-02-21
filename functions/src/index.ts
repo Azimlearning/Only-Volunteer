@@ -5,6 +5,7 @@ admin.initializeApp();
 
 // Export all functions
 export * from './news-alerts';
+export * from './generate-aid-resources';
 export * from './chatbot-rag';
 export * from './analytics';
 export * from './skill-matching';

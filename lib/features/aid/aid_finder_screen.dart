@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/aid_resource.dart';
 import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
+import '../../services/aid_generation_service.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
 
@@ -49,10 +51,51 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
 
   static const _categories = ['All', 'Food', 'Clothes', 'Medical', 'Clothing', 'Shelter', 'Education', 'Hygiene', 'Transport'];
 
+  Timer? _refreshTimer;
+  bool _generating = false;
+  DateTime? _lastGenerated;
+  static const _genCooldown = Duration(hours: 12);
+
   @override
   void initState() {
     super.initState();
     _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _autoGenerate());
+    _refreshTimer = Timer.periodic(const Duration(hours: 12), (_) {
+      if (mounted) _autoGenerate();
+    });
+  }
+
+  Future<void> _autoGenerate() async {
+    if (!mounted) return;
+    if (_lastGenerated != null &&
+        DateTime.now().difference(_lastGenerated!) < _genCooldown) return;
+    await _generateAid(silent: true);
+  }
+
+  Future<void> _generateAid({bool silent = false}) async {
+    if (_generating || !mounted) return;
+    setState(() => _generating = true);
+    try {
+      final result = await AidGenerationService.generate();
+      _lastGenerated = DateTime.now();
+      if (mounted) {
+        await _load();
+        if (!silent && result.ok) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Found ${result.resourcesCreated} aid resources near you.'),
+            backgroundColor: Colors.green,
+          ));
+        } else if (!silent && !result.ok) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Failed: ${result.message}'),
+            backgroundColor: Colors.red,
+          ));
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _generating = false);
+    }
   }
 
   Future<void> _load() async {
@@ -338,6 +381,7 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _searchController.dispose();
     _locationFilterController.dispose();
     super.dispose();
@@ -367,18 +411,36 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                 colors: [figmaOrange.withOpacity(0.1), figmaPurple.withOpacity(0.1)],
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                const Text(
-                  'Aid Finder',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Aid Finder',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: figmaBlack),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Find aid resources near you — powered by AI',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Find and request aid resources in your area',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                ),
+                if (_generating)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: () => _generateAid(silent: false),
+                    tooltip: 'Refresh AI aid resources',
+                  ),
               ],
             ),
           ),
