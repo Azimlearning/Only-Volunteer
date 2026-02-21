@@ -1,31 +1,12 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { VertexAI } from '@google-cloud/vertexai';
+import { GEMINI_MODEL, getGeminiApiKey } from './gemini-config';
 
-const gemini = new GoogleGenerativeAI(functions.config().gemini?.api_key || '');
-const geminiModel = gemini.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
-// Initialize Vertex AI for embeddings
-let vertexAI: VertexAI | null = null;
-let embeddingModel: any = null;
-
-function initializeVertexAI() {
-  if (!vertexAI) {
-    const projectId = functions.config().gcp?.project_id || process.env.GCLOUD_PROJECT;
-    if (!projectId) {
-      console.warn('GCP project ID not configured');
-      return;
-    }
-    vertexAI = new VertexAI({
-      project: projectId,
-      location: 'us-central1',
-    });
-    embeddingModel = vertexAI.preview.getGenerativeModel({
-      model: 'textembedding-gecko@003',
-    });
-  }
-}
+const apiKey = getGeminiApiKey();
+const gemini = new GoogleGenerativeAI(apiKey);
+const geminiModel = gemini.getGenerativeModel({ model: GEMINI_MODEL });
+const embeddingModel = gemini.getGenerativeModel({ model: 'text-embedding-004' });
 
 // Main chat endpoint
 export const chatWithRAG = functions.https.onCall(async (data, context) => {
@@ -36,12 +17,6 @@ export const chatWithRAG = functions.https.onCall(async (data, context) => {
 
   try {
     // 1. Generate query embedding
-    initializeVertexAI();
-    if (!embeddingModel) {
-      // Fallback to simple keyword search if Vertex AI not available
-      return await chatWithoutRAG(message, userId);
-    }
-
     const queryEmbedding = await generateEmbedding(message);
 
     // 2. Semantic search in Firestore
@@ -62,11 +37,8 @@ export const chatWithRAG = functions.https.onCall(async (data, context) => {
 });
 
 async function generateEmbedding(text: string): Promise<number[]> {
-  if (!embeddingModel) {
-    throw new Error('Embedding model not initialized');
-  }
   const result = await embeddingModel.embedContent({
-    content: { parts: [{ text }] },
+    content: { parts: [{ text }], role: 'user' },
   });
   return result.embedding.values;
 }
@@ -172,11 +144,6 @@ export const embedAllActivities = functions.https.onCall(async (data, context) =
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
 
-  initializeVertexAI();
-  if (!embeddingModel) {
-    throw new functions.https.HttpsError('failed-precondition', 'Vertex AI not configured');
-  }
-
   try {
     const activities = await admin.firestore().collection('volunteer_listings').get();
     let count = 0;
@@ -203,11 +170,6 @@ export const embedAllDrives = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
   }
 
-  initializeVertexAI();
-  if (!embeddingModel) {
-    throw new functions.https.HttpsError('failed-precondition', 'Vertex AI not configured');
-  }
-
   try {
     const drives = await admin.firestore().collection('donation_drives').get();
     let count = 0;
@@ -232,11 +194,6 @@ export const embedAllResources = functions.https.onCall(async (data, context) =>
   // Allow admin users or skip auth check in emulator
   if (!context.auth && process.env.FUNCTIONS_EMULATOR !== 'true') {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
-  }
-
-  initializeVertexAI();
-  if (!embeddingModel) {
-    throw new functions.https.HttpsError('failed-precondition', 'Vertex AI not configured');
   }
 
   try {

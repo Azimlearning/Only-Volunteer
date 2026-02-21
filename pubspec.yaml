@@ -22,10 +22,11 @@ dependencies:
 
   # Gemini AI
   google_generative_ai: ^0.4.7
-
   # Maps
   google_maps_flutter: ^2.9.0
 
+  # Markdown rendering for chatbot
+  flutter_markdown: ^0.7.4+1
   # UI & routing
   go_router: ^14.6.2
   provider: ^6.1.2

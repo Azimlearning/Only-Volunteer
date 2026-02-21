@@ -2,16 +2,17 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
+import { GEMINI_MODEL, getGeminiApiKey } from './gemini-config';
 
-const gemini = new GoogleGenerativeAI(functions.config().gemini?.api_key || '');
-const model = gemini.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const gemini = new GoogleGenerativeAI(getGeminiApiKey());
+const model = gemini.getGenerativeModel({ model: GEMINI_MODEL });
 
 // Scheduled function: runs every 15 minutes
 export const monitorNewsForAlerts = functions.pubsub
   .schedule('every 15 minutes')
   .timeZone('Asia/Kuala_Lumpur')
   .onRun(async (context) => {
-    const newsApiKey = functions.config().news?.api_key;
+    const newsApiKey = process.env.NEWS_API_KEY || functions.config().news?.api_key;
     if (!newsApiKey) {
       console.log('NewsAPI key not configured');
       return null;

@@ -3,11 +3,13 @@ import * as admin from 'firebase-admin';
 import { buildContext, type PageContext } from './context-builder';
 import { route } from './router';
 import { checkChatLimit, checkToolLimit } from './rate-limiter';
-import { formatWithGemini, chatWithContext } from './gemini-formatter';
+import { formatWithGemini, chatWithContext, generateSuggestions } from './gemini-formatter';
 import { runAnalyticsTool } from './tools/analytics-tool';
 import { runAlertsTool } from './tools/alerts-tool';
 import { runMatchingTool } from './tools/matching-tool';
 import { runAidFinderTool } from './tools/aidfinder-tool';
+import { runDonationDrivesTool } from './tools/donation-drives-tool';
+import { getConversationHistory, appendMessage } from './conversation-memory';
 
 export interface HandleAIRequestInput {
   userId: string;
@@ -65,17 +67,21 @@ export async function runHandleAIRequest(
     } else if (toolName === 'aidfinder') {
       const opts = data.metadata as { category?: string; urgency?: string } | undefined;
       toolData = await runAidFinderTool(userId, userContext, opts);
+    } else if (toolName === 'donation_drives') {
+      toolData = await runDonationDrivesTool(userId, userContext);
     }
   } catch (toolError) {
     console.error(`Tool ${toolName} error:`, toolError);
   }
+
+  const conversationHistory = message ? await getConversationHistory(userId, 6) : [];
 
   let text: string;
   try {
     if (toolData !== null && toolName) {
       text = await formatWithGemini(userContext, toolName, toolData, message);
     } else if (message) {
-      text = await chatWithContext(userContext, message);
+      text = await chatWithContext(userContext, message, conversationHistory);
     } else {
       text = 'Ask me about alerts, insights, matching, or nearby aid.';
     }
@@ -88,11 +94,30 @@ export async function runHandleAIRequest(
     }
   }
 
-  const suggestions: string[] = [];
+  if (message && text) {
+    try {
+      await appendMessage(userId, 'user', message);
+      await appendMessage(userId, 'model', text);
+    } catch (appendErr) {
+      console.warn('Conversation append failed:', appendErr);
+    }
+  }
+
+  let suggestions: string[] = [];
   if (toolName === 'alerts') suggestions.push('Show me the latest alerts', 'Any SOS?');
   if (toolName === 'analytics') suggestions.push('What should we focus on?');
   if (toolName === 'matching') suggestions.push('Find more matches', 'What else fits me?');
   if (toolName === 'aidfinder') suggestions.push('Find food banks', 'Nearby resources');
+  if (toolName === 'donation_drives') suggestions.push('Find food drives', 'What can I donate?');
+
+  if (message && text) {
+    try {
+      const aiSuggestions = await generateSuggestions(message, text);
+      if (aiSuggestions.length >= 2) suggestions = aiSuggestions;
+    } catch {
+      // keep static suggestions
+    }
+  }
 
   const result: HandleAIRequestOutput = {
     text,

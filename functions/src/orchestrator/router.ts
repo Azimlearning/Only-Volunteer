@@ -1,6 +1,6 @@
 import { PageContext } from './context-builder';
 
-export type ToolName = 'alerts' | 'analytics' | 'matching' | 'aidfinder' | null;
+export type ToolName = 'alerts' | 'analytics' | 'matching' | 'aidfinder' | 'donation_drives' | null;
 
 const ALERT_KEYWORDS = [
   'alert', 'alerts', 'sos', 'crisis', 'emergency', 'current issues',
@@ -13,6 +13,10 @@ const ANALYTICS_KEYWORDS = [
 const MATCHING_KEYWORDS = [
   'match', 'match me', 'recommend', 'recommendation', 'suitable', 'for me',
   'best for me', 'what can i do', 'opportunities for me', 'fit',
+];
+const DONATION_DRIVES_KEYWORDS = [
+  'donation drive', 'donation drives', 'drives', 'food drive', 'food drives',
+  'find donation', 'ongoing drives', 'where to donate', 'donation campaign',
 ];
 const AIDFINDER_KEYWORDS = [
   'nearby', 'nearby aid', 'aid', 'find aid', 'food bank', 'foodbank',
@@ -43,6 +47,7 @@ export function route(
     if (ALERT_KEYWORDS.some((k) => lower.includes(k))) return 'alerts';
     if (ANALYTICS_KEYWORDS.some((k) => lower.includes(k))) return 'analytics';
     if (MATCHING_KEYWORDS.some((k) => lower.includes(k))) return 'matching';
+    if (DONATION_DRIVES_KEYWORDS.some((k) => lower.includes(k))) return 'donation_drives';
     if (AIDFINDER_KEYWORDS.some((k) => lower.includes(k))) return 'aidfinder';
   }
 

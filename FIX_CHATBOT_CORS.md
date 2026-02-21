@@ -60,16 +60,15 @@ Send a message in the chatbot, then check the logs. Look for:
 - `Gemini chat error: ...` – the next line usually shows the cause (e.g. API key invalid, 400/403, quota).
 - `Gemini API key not configured` – config not set or not available.
 
-### 2. Ensure Gemini API key is set
-The key must be set in **Firebase** (for the Cloud Function), not only in Flutter:
-```bash
-firebase functions:config:set gemini.api_key="YOUR_GEMINI_API_KEY"
-```
-Get the key from [Google AI Studio](https://aistudio.google.com/app/apikey) (create or copy). Then **redeploy** so the function picks up config:
-```bash
-npm run build
-firebase deploy --only functions:handleAIRequestHttp
-```
+### 2. Ensure Gemini API key is available to the function
+The code reads **`GEMINI_API_KEY`** from the environment (no longer uses deprecated `functions.config()`).
+
+- **Local / emulator:** Create `functions/.env` with:
+  ```
+  GEMINI_API_KEY=your_key_here
+  ```
+  and run with `dotenv` loaded (the functions entry point loads `dotenv/config`).
+- **Production:** Because `functions/.env` is in `.gitignore`, it is not deployed. Set the variable in **Google Cloud Console**: Cloud Functions → select the function (e.g. `handleAIRequestHttp`) → Edit → Environment variables → Add `GEMINI_API_KEY` with your key. Alternatively, use [Secret Manager](https://firebase.google.com/docs/functions/config-env#secret-manager) and reference it in the function.
 
 ### 3. Key format and restrictions
 - Key should start with `AIza` and be a long string.
@@ -101,7 +100,7 @@ If **Google AI Studio → Usage** shows **403 Forbidden** errors and **0% succes
 
 ### 404 NotFound from Gemini
 
-If AI Studio shows **404 NotFound** instead of 403, the model ID may be wrong or deprecated. The functions now use `gemini-2.0-flash`. If 404 persists, try `gemini-1.5-flash` in `functions/src/orchestrator/gemini-formatter.ts` (constant `MODEL`).
+If AI Studio shows **404 NotFound** or "model is no longer available to new users", the model ID may be wrong or deprecated. The functions use **`gemini-2.5-flash`** (set in `functions/src/gemini-config.ts`). If that model is unavailable in your project, change `GEMINI_MODEL` there and rebuild.
 
 ### Other 403 causes
 - **Billing:** In some regions, free tier may require billing to be enabled (or a different project).
@@ -166,3 +165,95 @@ Future<String> testOrchestrator(String userId) async {
 ```
 
 Call from chatbot to see detailed error.
+
+---
+
+## Chat fallback chain (so the bot always responds)
+
+The chatbot now uses a **3-level fallback** so users get a reply even when the backend fails:
+
+1. **Orchestrator** (signed-in): `handleAIRequestHttp` with tools (alerts, matching, analytics, aid finder).
+2. **RAG** (signed-in): `chatWithRAG` (Firebase callable) if orchestrator fails.
+3. **Client Gemini**: direct `chat()` using `GEMINI_API_KEY` from `--dart-define` (or a friendly “add API key” message if unset).
+
+So for simple prompts like “hello”, the app will still respond via client-side Gemini if the Cloud Function is down or returns an error. Run the app with:
+
+```bash
+flutter run -d chrome --dart-define=GEMINI_API_KEY=your_key
+```
+
+so the client fallback has a key.
+
+---
+
+## Optional: Flutter AI Toolkit (Firebase AI Logic)
+
+The [Flutter AI Toolkit](https://docs.flutter.dev/ai/ai-toolkit) provides `LlmChatView` and `FirebaseProvider` for a first-party chat UI with streaming, voice, and attachments. It uses **Firebase AI Logic** (no CORS, no manual API key in app code).
+
+To use it you must:
+
+1. **Upgrade Firebase** to a version that supports `firebase_ai` (e.g. `firebase_core: ^4.4.0` and related FlutterFire packages), because `firebase_ai` currently requires `firebase_core ^4.3.0`.
+2. **Enable Firebase AI Logic** in your Firebase project ([Get started](https://firebase.google.com/docs/ai-logic/get-started)).
+3. Add dependencies: `flutter_ai_toolkit: ^1.0.0`, `firebase_ai: ^3.8.0`.
+4. Use `LlmChatView(provider: FirebaseProvider(model: FirebaseAI.googleAI().generativeModel(model: 'gemini-2.5-flash')))` as the chat body.
+
+Until you upgrade Firebase, the existing chatbot (orchestrator → RAG → client Gemini fallback) remains the supported path.
+
+---
+
+## Deploy verification (run from `functions/`)
+
+Commands must be run from the **`functions/`** folder, not the project root.
+
+### 1. Where is `.env`?
+
+- **Correct:** `functions/.env` (inside the functions folder).
+- **Wrong:** project root `.env` — that is not loaded by the Functions build/runtime.
+- `functions/.env` is in `functions/.gitignore` and is **not deployed**. Use it only for local emulator. For production, set **GEMINI_API_KEY** in Cloud Console (see below).
+
+### 2. Check `.env` (from project root or from `functions/`)
+
+```powershell
+cd functions
+Get-Content .env
+```
+
+You should see a line like `GEMINI_API_KEY=...`. If the file is missing, create `functions/.env` with that line.
+
+### 3. Build and check compiled output
+
+From **`functions/`**:
+
+```powershell
+cd functions
+npm run build
+Select-String -Path "lib\gemini-config.js" -Pattern "GEMINI_MODEL|GEMINI_API_KEY"
+Select-String -Path "lib\orchestrator\gemini-formatter.js" -Pattern "GEMINI_MODEL|getGeminiApiKey"
+```
+
+- **Expected:** `lib/gemini-config.js` contains `GEMINI_MODEL = 'gemini-2.5-flash'` and `process.env.GEMINI_API_KEY`.
+- **Expected:** No `functions.config().gemini` in any `lib/**/*.js` (all Gemini usage now goes through `gemini-config` and `process.env.GEMINI_API_KEY`).
+
+### 4. Deploy and set env in production
+
+**Deploy code (from project root):**
+```powershell
+cd functions
+npm run build
+firebase deploy --only functions
+```
+
+**Set `GEMINI_API_KEY` for production:**  
+The Console **Edit** button is not available for **1st Gen** Cloud Functions. Do it from the CLI. **Important:** run from the **OnlyVolunteer project folder** and use `--source=functions` so gcloud uploads only the functions folder (otherwise it may use the current directory and exceed the 512 MB limit):
+
+```powershell
+# 1) Go to project root (not the Google Cloud SDK folder)
+cd c:\Users\User\Documents\Coding\Hackathon\OnlyVolunteer
+
+# 2) Set env var on each function (replace YOUR_GEMINI_API_KEY with your key)
+gcloud functions deploy handleAIRequestHttp --update-env-vars GEMINI_API_KEY=YOUR_GEMINI_API_KEY --region us-central1 --source=functions
+
+gcloud functions deploy chatWithRAG --update-env-vars GEMINI_API_KEY=YOUR_GEMINI_API_KEY --region us-central1 --source=functions
+```
+
+Optional: `gcloud config set project onlyvolunteer-e3066` first if needed. The repo has a `functions/.gcloudignore` so `node_modules` is not uploaded (Cloud Build runs `npm install` on deploy). Other Gemini-using functions can be updated the same way if they need the key.

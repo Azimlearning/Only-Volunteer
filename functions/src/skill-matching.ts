@@ -1,9 +1,10 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GEMINI_MODEL, getGeminiApiKey } from './gemini-config';
 
-const gemini = new GoogleGenerativeAI(functions.config().gemini?.api_key || '');
-const model = gemini.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const gemini = new GoogleGenerativeAI(getGeminiApiKey());
+const model = gemini.getGenerativeModel({ model: GEMINI_MODEL });
 
 export const matchVolunteerToActivities = functions.https.onCall(async (data, context) => {
   const { userId } = data;

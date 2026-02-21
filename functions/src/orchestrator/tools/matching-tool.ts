@@ -1,11 +1,11 @@
 import * as admin from 'firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import * as functions from 'firebase-functions';
+import { GEMINI_MODEL, getGeminiApiKey } from '../../gemini-config';
 import type { UserContext } from '../context-builder';
 
 const db = admin.firestore();
-const gemini = new GoogleGenerativeAI(functions.config().gemini?.api_key || '');
-const model = gemini.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const gemini = new GoogleGenerativeAI(getGeminiApiKey());
+const model = gemini.getGenerativeModel({ model: GEMINI_MODEL });
 
 export interface MatchItem {
   id: string;

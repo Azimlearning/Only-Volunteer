@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
@@ -21,6 +22,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final _scrollController = ScrollController();
   final List<MapEntry<bool, String>> _messages = [];
   List<Map<String, String>> _recommendations = [];
+  List<String> _lastSuggestions = [];
   bool _loading = false;
   bool _initialized = false;
   AppUser? _appUser;
@@ -89,6 +91,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     setState(() {
       _messages.clear();
       _recommendations = [];
+      _lastSuggestions = [];
     });
     _loadRecommendations();
   }
@@ -106,37 +109,42 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     setState(() {
       _messages.add(MapEntry(true, trimmed));
       _loading = true;
+      _lastSuggestions = [];
     });
     String reply;
+    List<String> suggestions = [];
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null && _appUser != null) {
-        // Main AI: orchestrator (tools: alerts, analytics, matching, aidfinder) with fallback to RAG
-        reply = await _gemini.chatWithOrchestrator(trimmed, uid, pageContext: 'chat');
+        final result = await _gemini.chatWithOrchestratorFull(trimmed, uid, pageContext: 'chat');
+        reply = result.text;
+        suggestions = result.suggestions ?? [];
       } else {
-        // Not signed in - use regular chat
         reply = await _gemini.chat(trimmed);
       }
     } catch (e) {
       print('Chatbot error: $e');
-      print('Error type: ${e.runtimeType}');
-      // Try RAG fallback if orchestrator fails
       try {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null) {
-          print('Falling back to RAG chat...');
           reply = await _gemini.chatWithRAG(trimmed, uid);
         } else {
           reply = await _gemini.chat(trimmed);
         }
-      } catch (fallbackError) {
-        print('Fallback also failed: $fallbackError');
-        reply = Config.chatbotFallbackMessage;
+      } catch (e2) {
+        print('RAG fallback error: $e2');
+        try {
+          reply = await _gemini.chat(trimmed);
+        } catch (e3) {
+          print('Client chat fallback error: $e3');
+          reply = Config.chatbotFallbackMessage;
+        }
       }
     }
     if (mounted) {
       setState(() {
         _messages.add(MapEntry(false, reply));
+        _lastSuggestions = suggestions;
         _loading = false;
       });
       _scrollToBottom();
@@ -290,14 +298,34 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                                       ? Border.all(color: figmaOrange.withOpacity(0.3))
                                       : null,
                                 ),
-                                child: Text(
-                                  content,
-                                  style: TextStyle(
-                                    height: 1.4,
-                                    color: isUser ? figmaBlack : Colors.black87,
-                                    fontSize: 15,
-                                  ),
-                                ),
+                                child: isUser
+                                    ? Text(
+                                        content,
+                                        style: TextStyle(
+                                          height: 1.4,
+                                          color: figmaBlack,
+                                          fontSize: 15,
+                                        ),
+                                      )
+                                    : MarkdownBody(
+                                        data: content,
+                                        styleSheet: MarkdownStyleSheet(
+                                          p: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                height: 1.4,
+                                                color: Colors.black87,
+                                                fontSize: 15,
+                                              ) ??
+                                              const TextStyle(
+                                                height: 1.4,
+                                                color: Colors.black87,
+                                                fontSize: 15,
+                                              ),
+                                          strong: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ),
                               ),
                             ),
                           ),
@@ -329,6 +357,25 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   ],
                 ),
         ),
+        if (_lastSuggestions.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(kPagePadding, 8, kPagePadding, 4),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _lastSuggestions.map((label) {
+                return ActionChip(
+                  label: Text(label),
+                  onPressed: _loading ? null : () => _send(label),
+                  backgroundColor: figmaOrange.withOpacity(0.12),
+                  side: BorderSide(color: figmaOrange.withOpacity(0.4)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(kCardRadius),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
         Container(
           padding: const EdgeInsets.fromLTRB(kPagePadding, 12, kPagePadding, 20),
           decoration: BoxDecoration(

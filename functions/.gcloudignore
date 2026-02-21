@@ -1,0 +1,9 @@
+# Keep upload under 512 MB when using gcloud functions deploy
+# Cloud Build will run npm install during deploy
+node_modules/
+.git/
+*.log
+.env
+.firebase/
+.runtimeconfig.json
+*.map

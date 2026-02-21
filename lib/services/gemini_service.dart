@@ -11,6 +11,14 @@ import '../models/app_user.dart';
 import '../models/donation_drive.dart';
 import '../models/volunteer_listing.dart';
 
+/// Result from the orchestrator (text + optional follow-up suggestion chips).
+class OrchestratorResult {
+  const OrchestratorResult({required this.text, this.suggestions});
+
+  final String text;
+  final List<String>? suggestions;
+}
+
 class GeminiService {
   GeminiService({String? apiKey}) : _apiKey = apiKey ?? Config.geminiApiKey;
 
@@ -301,14 +309,20 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
   /// Main AI orchestrator: routes to tools (alerts, analytics, matching, aidfinder) and formats with Gemini.
   /// On web, uses HTTP endpoint with CORS to avoid callable CORS issues.
   Future<String> chatWithOrchestrator(String message, String userId, {String pageContext = 'chat'}) async {
+    final result = await chatWithOrchestratorFull(message, userId, pageContext: pageContext);
+    return result.text;
+  }
+
+  /// Orchestrator that returns both reply text and suggestion chips for quick replies.
+  Future<OrchestratorResult> chatWithOrchestratorFull(String message, String userId, {String pageContext = 'chat'}) async {
     if (kIsWeb) {
-      return _chatWithOrchestratorHttp(message, userId, pageContext: pageContext);
+      return _chatWithOrchestratorHttpFull(message, userId, pageContext: pageContext);
     }
-    return _chatWithOrchestratorCallable(message, userId, pageContext: pageContext);
+    return _chatWithOrchestratorCallableFull(message, userId, pageContext: pageContext);
   }
 
   /// Web: call HTTP endpoint with CORS so browser allows the request.
-  Future<String> _chatWithOrchestratorHttp(String message, String userId, {String pageContext = 'chat'}) async {
+  Future<OrchestratorResult> _chatWithOrchestratorHttpFull(String message, String userId, {String pageContext = 'chat'}) async {
     try {
       final projectId = Firebase.app().options.projectId ?? 'onlyvolunteer-e3066';
       final url = Uri.parse(
@@ -337,15 +351,25 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
           );
       if (response.statusCode != 200) {
         print('handleAIRequestHttp error: ${response.statusCode} ${response.body}');
-        return _fallbackToRagOrDirect(message, userId);
+        final fallback = await _fallbackToRagOrDirect(message, userId);
+        return OrchestratorResult(text: fallback, suggestions: []);
       }
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
       final text = data?['text'] as String?;
-      if (text != null && text.isNotEmpty) return text;
-      return _fallbackToRagOrDirect(message, userId);
+      List<String>? suggestions;
+      final raw = data?['suggestions'];
+      if (raw is List) {
+        suggestions = raw.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+      }
+      if (text != null && text.isNotEmpty) {
+        return OrchestratorResult(text: text, suggestions: suggestions?.isNotEmpty == true ? suggestions : null);
+      }
+      final fallback = await _fallbackToRagOrDirect(message, userId);
+      return OrchestratorResult(text: fallback, suggestions: []);
     } catch (e) {
       print('Orchestrator HTTP error: $e');
-      return _fallbackToRagOrDirect(message, userId);
+      final fallback = await _fallbackToRagOrDirect(message, userId);
+      return OrchestratorResult(text: fallback, suggestions: []);
     }
   }
 
@@ -359,7 +383,7 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
   }
 
   /// Non-web (mobile/desktop): use callable.
-  Future<String> _chatWithOrchestratorCallable(String message, String userId, {String pageContext = 'chat'}) async {
+  Future<OrchestratorResult> _chatWithOrchestratorCallableFull(String message, String userId, {String pageContext = 'chat'}) async {
     try {
       final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
       final callable = functions.httpsCallable('handleAIRequest');
@@ -376,14 +400,24 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
           );
       final data = result.data as Map<String, dynamic>?;
       final text = data?['text'] as String?;
-      if (text != null && text.isNotEmpty) return text;
-      return _fallbackToRagOrDirect(message, userId);
+      List<String>? suggestions;
+      final raw = data?['suggestions'];
+      if (raw is List) {
+        suggestions = raw.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+      }
+      if (text != null && text.isNotEmpty) {
+        return OrchestratorResult(text: text, suggestions: suggestions?.isNotEmpty == true ? suggestions : null);
+      }
+      final fallback = await _fallbackToRagOrDirect(message, userId);
+      return OrchestratorResult(text: fallback, suggestions: []);
     } on FirebaseFunctionsException catch (e) {
       print('Orchestrator callable error: ${e.code} ${e.message}');
-      return _fallbackToRagOrDirect(message, userId);
+      final fallback = await _fallbackToRagOrDirect(message, userId);
+      return OrchestratorResult(text: fallback, suggestions: []);
     } catch (e) {
       print('Orchestrator callable error: $e');
-      return _fallbackToRagOrDirect(message, userId);
+      final fallback = await _fallbackToRagOrDirect(message, userId);
+      return OrchestratorResult(text: fallback, suggestions: []);
     }
   }
 }
