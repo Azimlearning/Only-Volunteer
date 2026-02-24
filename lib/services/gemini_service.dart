@@ -78,7 +78,7 @@ class GeminiService {
       return;
     }
     final systemPrompt = '''
-You are the OnlyVolunteer concierge. You help users with: finding volunteer opportunities, donation drives, how to sign up, how to list activities, e-certificates, leaderboards, and flood/SOS alerts. Be brief and helpful (2-4 sentences). When suggesting activities or drives, you can say "Check the suggestions below" so the user sees the recommended cards.
+You are the OnlyVolunteer concierge. You help users with: finding volunteer opportunities, donation drives, how to sign up, how to list activities, and flood/SOS alerts. Be brief and helpful (2-4 sentences). When suggesting activities or drives, you can say "Check the suggestions below" so the user sees the recommended cards.
 
 $contextBlock
 
@@ -96,7 +96,6 @@ Guidelines: Be friendly and concise. Use the user's location and interests when 
       parts.add('User profile: ${user.displayName ?? user.email}; role: ${user.role.name}.');
       if (user.skills.isNotEmpty) parts.add('Skills: ${user.skills.join(", ")}.');
       if (user.interests.isNotEmpty) parts.add('Interests: ${user.interests.join(", ")}.');
-      if (user.points > 0) parts.add('Points: ${user.points}.');
     }
     if (locationSummary != null && locationSummary.isNotEmpty) {
       parts.add('Location: $locationSummary');
@@ -117,7 +116,7 @@ Guidelines: Be friendly and concise. Use the user's location and interests when 
     String? fallbackMessage,
   }) async {
     if (_apiKey.isEmpty) {
-      return 'OnlyVolunteer connects volunteers with NGOs and donation drives. Sign in to browse opportunities, get matched by skills, and earn e-certificates. Set GEMINI_API_KEY for full AI help.';
+      return 'OnlyVolunteer connects volunteers with NGOs and donation drives. Sign in to browse opportunities and get matched by skills. Set GEMINI_API_KEY for full AI help.';
     }
     final contextBlock = _buildContextBlock(
       user: user,
@@ -125,7 +124,7 @@ Guidelines: Be friendly and concise. Use the user's location and interests when 
       recentActivitySummary: recentActivitySummary,
     );
     const basePrompt = '''
-You are the OnlyVolunteer concierge. You help users with: finding volunteer opportunities, donation drives, how to sign up, how to list activities, e-certificates, leaderboards, and flood/SOS alerts. Be brief and helpful (2-4 sentences).''';
+You are the OnlyVolunteer concierge. You help users with: finding volunteer opportunities, donation drives, how to sign up, how to list activities, and flood/SOS alerts. Be brief and helpful (2-4 sentences).''';
     final fullPrompt = contextBlock.isEmpty
         ? '$basePrompt\n\nUser: $userMessage\nAssistant:'
         : '$basePrompt\n\n$contextBlock\n\nUser: $userMessage\nAssistant:';

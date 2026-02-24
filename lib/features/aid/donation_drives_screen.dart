@@ -491,14 +491,14 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
                     ],
                   ),
                 ),
-                FilledButton.icon(
+                FilledButton(
                   onPressed: () => context.go('/create-drive'),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Create New Drive'),
                   style: FilledButton.styleFrom(
                     backgroundColor: figmaOrange,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
+                  child: const Text('Create New Drive'),
                 ),
               ],
             ),

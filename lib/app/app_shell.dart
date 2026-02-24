@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../core/theme.dart';
@@ -13,9 +12,6 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthNotifier>();
-    final canManage = auth.appUser?.role == UserRole.ngo || auth.appUser?.role == UserRole.admin;
-    
     // Unified static header for ALL pages
     return Scaffold(
       body: Column(
@@ -28,7 +24,7 @@ class AppShell extends StatelessWidget {
               bottom: false,
               child: Row(
                 children: [
-                  // Logo - clickable to go home
+                  // Brand - clickable to go home (logo + text)
                   InkWell(
                     onTap: () => context.go('/home'),
                     borderRadius: BorderRadius.circular(8),
@@ -69,11 +65,6 @@ class AppShell extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   TextButton(
-                    onPressed: () => context.go('/about-us'),
-                    child: const Text('About Us', style: TextStyle(color: Colors.white, fontSize: 14)),
-                  ),
-                  const SizedBox(width: 12),
-                  TextButton(
                     onPressed: () => context.go('/finder'),
                     child: const Text('Aid Finder', style: TextStyle(color: Colors.white, fontSize: 14)),
                   ),
@@ -94,50 +85,23 @@ class AppShell extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   TextButton(
-                    onPressed: () => context.go('/my-activities'),
-                    child: const Text('My Activities', style: TextStyle(color: Colors.white, fontSize: 14)),
-                  ),
-                  const SizedBox(width: 12),
-                  TextButton(
-                    onPressed: () => context.go('/my-requests'),
-                    child: const Text('My Requests', style: TextStyle(color: Colors.white, fontSize: 14)),
-                  ),
-                  const SizedBox(width: 12),
-                  TextButton(
                     onPressed: () => context.go('/chatbot'),
                     child: const Text('AI Chatbot', style: TextStyle(color: Colors.white, fontSize: 14)),
                   ),
                   const SizedBox(width: 12),
-                  // Dropdown menu for other features
-                  _FeaturesDropdown(canManage: canManage),
+                  TextButton(
+                    onPressed: () => context.go('/alerts'),
+                    child: const Text('Alerts', style: TextStyle(color: Colors.white, fontSize: 14)),
+                  ),
                   const SizedBox(width: 12),
-                  // Profile icon with notification badge - clickable
+                  // Profile icon - clickable
                   InkWell(
                     onTap: () => context.go('/profile'),
                     borderRadius: BorderRadius.circular(20),
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Colors.grey[700],
-                          child: Icon(Icons.person, color: Colors.grey[300], size: 20),
-                        ),
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Text(
-                              '3',
-                              style: TextStyle(color: Colors.white, fontSize: 10),
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Colors.grey[700],
+                      child: Icon(Icons.person, color: Colors.grey[300], size: 20),
                     ),
                   ),
                 ],
@@ -189,19 +153,9 @@ class AppShell extends StatelessWidget {
             ListTile(leading: const Icon(Icons.home), title: const Text('Home'), onTap: () => context.go('/home')),
             ListTile(leading: const Icon(Icons.search), title: const Text('Aid Finder'), onTap: () => context.go('/finder')),
             ListTile(leading: const Icon(Icons.volunteer_activism), title: const Text('Donation Drives'), onTap: () => context.go('/drives')),
-            if (canManage)
-              ListTile(leading: const Icon(Icons.add_circle_outline), title: const Text('Create Drive'), onTap: () => context.go('/create-drive')),
             ListTile(leading: const Icon(Icons.work), title: const Text('Opportunities'), onTap: () => context.go('/opportunities')),
-            ListTile(leading: const Icon(Icons.map), title: const Text('Map View'), onTap: () => context.go('/map')),
-            ListTile(leading: const Icon(Icons.event), title: const Text('My Activities'), onTap: () => context.go('/my-activities')),
             ListTile(leading: const Icon(Icons.auto_awesome), title: const Text('Match Me'), onTap: () => context.go('/match')),
-            ListTile(leading: const Icon(Icons.people), title: const Text('Feed'), onTap: () => context.go('/feed')),
-            ListTile(leading: const Icon(Icons.emoji_events), title: const Text('Leaderboard'), onTap: () => context.go('/leaderboard')),
-            ListTile(leading: const Icon(Icons.bar_chart), title: const Text('Analytics'), onTap: () => context.go('/analytics')),
-            if (canManage) ...[
-              const Divider(),
-              ListTile(leading: const Icon(Icons.science), title: const Text('Developer'), onTap: () => context.go('/developer')),
-            ],
+            ListTile(leading: const Icon(Icons.notifications_active), title: const Text('Alerts'), onTap: () => context.go('/alerts')),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout),
@@ -214,110 +168,6 @@ class AppShell extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _FeaturesDropdown extends StatelessWidget {
-  const _FeaturesDropdown({required this.canManage});
-
-  final bool canManage;
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.menu, color: Colors.white),
-      color: Colors.white,
-      offset: const Offset(0, 50),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      itemBuilder: (context) => [
-        // Other Features Section (core pages are now visible buttons)
-        const PopupMenuItem(
-          value: '/leaderboard',
-          child: Row(
-            children: [
-              Icon(Icons.emoji_events, color: figmaOrange, size: 20),
-              SizedBox(width: 12),
-              Text('Leaderboard'),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: '/analytics',
-          child: Row(
-            children: [
-              Icon(Icons.bar_chart, color: figmaPurple, size: 20),
-              SizedBox(width: 12),
-              Text('Analytics'),
-            ],
-          ),
-        ),
-        // Other Features Section
-        const PopupMenuItem(
-          value: '/feed',
-          child: Row(
-            children: [
-              Icon(Icons.people, color: figmaOrange, size: 20),
-              SizedBox(width: 12),
-              Text('Feed'),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: '/alerts',
-          child: Row(
-            children: [
-              Icon(Icons.notifications_active, color: figmaPurple, size: 20),
-              SizedBox(width: 12),
-              Text('Alerts'),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: '/map',
-          child: Row(
-            children: [
-              Icon(Icons.map, color: figmaOrange, size: 20),
-              SizedBox(width: 12),
-              Text('Map View'),
-            ],
-          ),
-        ),
-        if (canManage) ...[
-          const PopupMenuDivider(),
-          const PopupMenuItem(
-            value: '/create-drive',
-            child: Row(
-              children: [
-                Icon(Icons.add_circle_outline, color: figmaPurple, size: 20),
-                SizedBox(width: 12),
-                Text('Create Drive'),
-              ],
-            ),
-          ),
-          const PopupMenuItem(
-            value: '/create-opportunity',
-            child: Row(
-              children: [
-                Icon(Icons.work_outline, color: figmaOrange, size: 20),
-                SizedBox(width: 12),
-                Text('Create Opportunity'),
-              ],
-            ),
-          ),
-          const PopupMenuItem(
-            value: '/developer',
-            child: Row(
-              children: [
-                Icon(Icons.science, color: figmaPurple, size: 20),
-                SizedBox(width: 12),
-                Text('Developer'),
-              ],
-            ),
-          ),
-        ],
-      ],
-      onSelected: (value) => context.go(value),
     );
   }
 }

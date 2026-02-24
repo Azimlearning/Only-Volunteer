@@ -89,7 +89,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           case UserRole.volunteer:
             return _UserAnalyticsView(
               data: payload.userData ?? UserAnalyticsData.empty,
-              points: payload.userData?.pointsCollected ?? 0,
               insightText: _insightText,
               loadingInsights: _loadingInsights,
               onGenerateInsights: _loadAIInsights,
@@ -149,18 +148,10 @@ Widget _buildHeader(BuildContext context, {VoidCallback? onGenerateInsights, boo
           figmaOrange.withOpacity(0.08),
         ],
       ),
+      borderRadius: BorderRadius.circular(kCardRadius),
     ),
     child: Row(
       children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: figmaPurple.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(kCardRadius),
-          ),
-          child: const Icon(Icons.bar_chart_rounded, color: figmaPurple, size: 28),
-        ),
-        const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,14 +174,13 @@ Widget _buildHeader(BuildContext context, {VoidCallback? onGenerateInsights, boo
           ),
         ),
         if (onGenerateInsights != null)
-          IconButton.filled(
+          FilledButton(
             onPressed: loadingInsights ? null : onGenerateInsights,
-            icon: Icon(loadingInsights ? Icons.hourglass_empty : Icons.auto_awesome),
-            tooltip: 'Generate AI Insights',
-            style: IconButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: figmaOrange,
               foregroundColor: Colors.white,
             ),
+            child: Text(loadingInsights ? 'Generating…' : 'Generate insights'),
           ),
       ],
     ),
@@ -324,36 +314,23 @@ Widget _buildSuggestionSection(BuildContext context, {required String title, req
 class _UserAnalyticsView extends StatelessWidget {
   const _UserAnalyticsView({
     required this.data,
-    required this.points,
     this.insightText,
     required this.loadingInsights,
     required this.onGenerateInsights,
   });
 
   final UserAnalyticsData data;
-  final int points;
   final String? insightText;
   final bool loadingInsights;
   final VoidCallback? onGenerateInsights;
 
   @override
   Widget build(BuildContext context) {
-    const eliteThreshold = 1000;
-    final fraction = (points / eliteThreshold).clamp(0.0, 1.0);
-    final toGo = (eliteThreshold - points).clamp(0, eliteThreshold);
-
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(context, onGenerateInsights: onGenerateInsights, loadingInsights: loadingInsights),
-          _buildProgressBar(
-            context,
-            leftLabel: 'GOLD',
-            rightLabel: 'ELITE',
-            fraction: fraction,
-            message: toGo > 0 ? '$toGo points to Elite. Contribute $toGo points more to unlock Elite.' : 'Elite unlocked!',
-          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: kPagePadding),
             child: Row(
@@ -373,16 +350,6 @@ class _UserAnalyticsView extends StatelessWidget {
                     value: 'RM${data.rmDonations.toStringAsFixed(0)}',
                     label: 'Spent on Donations',
                     icon: Icons.attach_money,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _metricCard(
-                    context,
-                    value: '${data.pointsCollected}',
-                    label: 'Points Collected',
-                    icon: Icons.star,
-                    highlight: true,
                   ),
                 ),
               ],
@@ -487,7 +454,7 @@ class _OrganizerAnalyticsView extends StatelessWidget {
             leftLabel: 'GRASSROOTS',
             rightLabel: 'IMPACT PARTNER',
             fraction: fraction,
-            message: toGo > 0 ? '50% to Impact Partner. Contribute 500 points more to unlock Impact Partner.' : 'Impact Partner level.',
+            message: toGo > 0 ? 'Keep growing your impact.' : 'Impact Partner level.',
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: kPagePadding),
@@ -604,14 +571,6 @@ class _AdminAnalyticsView extends StatelessWidget {
             context,
             title: 'What these metrics say about your impact?',
             body: insightText,
-          ),
-          _buildSuggestionSection(
-            context,
-            title: 'Suggestion',
-            child: Text(
-              'System Flag: Review high-activity or flagged accounts from the Developer or Admin tools.',
-              style: TextStyle(color: Colors.grey[700], fontSize: 14),
-            ),
           ),
         ],
       ),

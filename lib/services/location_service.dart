@@ -1,5 +1,24 @@
 import 'package:flutter/foundation.dart';
 
+/// Malaysian states/regions for manual location selection (profile My Location).
+const List<String> malaysianStates = [
+  'Johor',
+  'Kedah',
+  'Kelantan',
+  'Kuala Lumpur',
+  'Malacca',
+  'Negeri Sembilan',
+  'Pahang',
+  'Penang',
+  'Perak',
+  'Perlis',
+  'Sabah',
+  'Sarawak',
+  'Selangor',
+  'Terengganu',
+  'Malaysia',
+];
+
 /// Shared location service used by both Aid Finder and Alerts screens.
 /// Uses browser Geolocation API on web, falls back to null gracefully.
 class LocationService {

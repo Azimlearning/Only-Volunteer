@@ -4,11 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../models/alert.dart';
-import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/alerts_service.dart';
-import '../../services/location_service.dart';
 import '../../core/theme.dart';
 
 class AlertsScreen extends StatefulWidget {
@@ -20,7 +18,6 @@ class AlertsScreen extends StatefulWidget {
 
 class _AlertsScreenState extends State<AlertsScreen> {
   Timer? _refreshTimer;
-  bool _generating = false;
   // Keep stream reference stable so refresh/pull-to-refresh does not recreate it
   // (recreating caused the list to briefly disappear when the StreamBuilder re-subscribed).
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _alertsStream;
@@ -41,45 +38,22 @@ class _AlertsScreenState extends State<AlertsScreen> {
     super.dispose();
   }
 
-  /// Prefer GPS-derived location, then profile location, for localised alerts.
-  Future<String?> _resolveUserLocation() async {
-    final gps = await LocationService.getCurrentLocation();
-    if (gps != null) return gps.resolvedLocation;
-    final auth = context.read<AuthNotifier>();
-    final profile = auth.appUser?.location;
+  /// Use saved profile location only (single source for user location).
+  String? _getUserLocation() {
+    final profile = context.read<AuthNotifier>().appUser?.location;
     if (profile != null && profile.isNotEmpty && profile != 'Not set') return profile;
     return null;
   }
 
   Future<void> _runAutoGenerate() async {
     if (!mounted) return;
-    final userLocation = await _resolveUserLocation();
+    final userLocation = _getUserLocation();
     await triggerNewsAlertsGeneration(userLocation: userLocation);
   }
 
   Future<void> _onRefresh() async {
     if (!mounted) return;
     await _runAutoGenerate();
-  }
-
-  Future<void> _onGenerateNow() async {
-    if (_generating || !mounted) return;
-    setState(() => _generating = true);
-    try {
-      final userLocation = await _resolveUserLocation();
-      final result = await triggerNewsAlertsGeneration(userLocation: userLocation);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.ok
-              ? 'Done! ${result.alertsCreated} alerts generated from ${result.articlesProcessed} news articles.'
-              : 'Failed: ${result.message}'),
-          backgroundColor: result.ok ? Colors.green : Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _generating = false);
-    }
   }
 
   Color _getSeverityColor(String? severity) {
@@ -124,12 +98,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthNotifier>();
-    final isAdmin = auth.appUser?.role == UserRole.admin || auth.appUser?.role == UserRole.ngo;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Page header with refresh + admin Generate Now
+        // Page header with refresh
         Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(kPagePadding, 20, kPagePadding, 24),
@@ -148,15 +120,6 @@ class _AlertsScreenState extends State<AlertsScreen> {
             children: [
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: figmaOrange.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(kCardRadius),
-                    ),
-                    child: const Icon(Icons.notifications_active, color: figmaOrange, size: 28),
-                  ),
-                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,7 +135,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Real-time alerts from AI news monitoring',
+                          'Real-time alerts from AI news monitoring.',
                           style: TextStyle(
                             fontSize: kHeaderSubtitleSize,
                             color: Colors.grey[700],
@@ -182,29 +145,14 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
+                  FilledButton(
                     onPressed: _onRefresh,
-                    tooltip: 'Refresh list',
-                  ),
-                  if (isAdmin) ...[
-                    const SizedBox(width: 4),
-                    FilledButton.icon(
-                      onPressed: _generating ? null : _onGenerateNow,
-                      icon: _generating
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.autorenew, size: 18),
-                      label: Text(_generating ? 'Generating…' : 'Generate Now'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: figmaOrange,
-                        foregroundColor: Colors.white,
-                      ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: figmaOrange,
+                      foregroundColor: Colors.white,
                     ),
-                  ],
+                    child: const Text('Refresh'),
+                  ),
                 ],
               ),
             ],

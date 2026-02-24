@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../models/app_user.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/gemini_service.dart';
 import '../../services/firestore_service.dart';
 
@@ -48,14 +50,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     if (uid != null) {
       final user = await _firestore.getUser(uid);
       _appUser = user ?? AppUser(uid: uid, email: FirebaseAuth.instance.currentUser?.email ?? '');
+      _locationSummary = _appUser?.location;
       final attendances = await _firestore.getAttendancesForUser(uid);
-      final certs = await _firestore.getCertificatesForUser(uid);
       _recentActivitySummary = [];
       for (final a in attendances.take(3)) {
         _recentActivitySummary.add('Volunteered (${a.hours ?? 0} hrs)');
-      }
-      for (final c in certs.take(2)) {
-        _recentActivitySummary.add('E-certificate: ${c.listingTitle}');
       }
     }
     _gemini.startChatWithContext(
@@ -67,6 +66,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   void _startNewChat() {
+    if (mounted) _locationSummary = context.read<AuthNotifier>().appUser?.location;
     _gemini.startChatWithContext(
       user: _appUser,
       locationSummary: _locationSummary,
@@ -306,15 +306,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: figmaOrange.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(kCardRadius),
-                ),
-                child: const Icon(Icons.smart_toy_rounded, color: figmaOrange, size: 28),
-              ),
-              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,7 +321,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Ask anything — alerts, insights, matching, nearby aid',
+                      'Ask anything — alerts, insights, matching, nearby aid.',
                       style: TextStyle(
                         fontSize: kHeaderSubtitleSize,
                         color: Colors.grey[700],
@@ -340,14 +331,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   ],
                 ),
               ),
-              IconButton.filled(
+              FilledButton(
                 onPressed: _initialized && !_loading ? _startNewChat : null,
-                icon: const Icon(Icons.refresh_rounded),
-                tooltip: 'New chat',
-                style: IconButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: figmaPurple,
                   foregroundColor: Colors.white,
                 ),
+                child: const Text('New chat'),
               ),
             ],
           ),
@@ -553,7 +543,7 @@ class _AnalyticsSummaryCard extends StatelessWidget {
       case 'rmDonations':
         return 'Donations (RM)';
       case 'pointsCollected':
-        return 'Points';
+        return 'Impact';
       case 'totalVolunteers':
         return 'Total volunteers';
       case 'activeCampaigns':

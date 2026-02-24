@@ -122,12 +122,14 @@ class _MatchScreenState extends State<MatchScreen> {
     if (!mounted) return;
     setState(() { _loading = true; _error = null; });
     try {
+      final auth = Provider.of<AuthNotifier>(context, listen: false);
+      final savedLocation = auth.appUser?.location;
       final callable = FirebaseFunctions.instanceFor(region: 'us-central1').httpsCallable('runMatchAssessment');
       final answers = {
         'skills': profile['skills'] is List ? profile['skills'] : [],
         'interests': profile['skills'] is List ? profile['skills'] : [],
         'availability': profile['availability']?.toString() ?? '',
-        'location': profile['location']?.toString() ?? '',
+        'location': (savedLocation != null && savedLocation.isNotEmpty) ? savedLocation : (profile['location']?.toString() ?? ''),
         'causes': profile['causes'] is List ? profile['causes'] : [],
       };
       final result = await callable.call({'userId': uid, 'answers': answers}).timeout(

@@ -176,8 +176,8 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
                         const SizedBox(height: 12),
                         const _CorePageInfo(
                           icon: Icons.event,
-                          title: 'My Activities',
-                          description: '3 attendances, 2 e-certificates, 3 donations',
+                          title: 'Profile (My Activity)',
+                          description: 'Event participation, requests, analytics in Profile',
                           color: figmaOrange,
                         ),
                         const SizedBox(height: 12),

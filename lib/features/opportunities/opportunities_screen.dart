@@ -471,11 +471,13 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
                     ],
                   ),
                 ),
-                TextButton.icon(
+                FilledButton(
                   onPressed: () => context.go('/my-requests'),
-                  icon: const Icon(Icons.list_alt, size: 18),
-                  label: const Text('My Requests'),
-                  style: TextButton.styleFrom(foregroundColor: figmaPurple),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: figmaOrange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('My Requests'),
                 ),
               ],
             ),

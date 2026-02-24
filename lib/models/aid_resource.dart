@@ -19,6 +19,9 @@ class AidResource {
     this.updatedAt,
     this.lat,
     this.lng,
+    this.operatingHours,
+    this.eligibility,
+    this.phone,
   });
 
   final String id;
@@ -35,6 +38,10 @@ class AidResource {
   final String? imageUrl;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  /// Single source for list and detail; null for legacy docs.
+  final String? operatingHours;
+  final String? eligibility;
+  final String? phone;
 
   factory AidResource.fromFirestore(DocumentSnapshot doc) {
     final m = doc.data() as Map<String, dynamic>? ?? {};
@@ -53,6 +60,9 @@ class AidResource {
       updatedAt: (m['updatedAt'] as Timestamp?)?.toDate(),
       lat: (m['lat'] as num?)?.toDouble(),
       lng: (m['lng'] as num?)?.toDouble(),
+      operatingHours: m['operatingHours'] as String?,
+      eligibility: m['eligibility'] as String?,
+      phone: m['phone'] as String?,
     );
   }
 
@@ -78,6 +88,19 @@ class AidResource {
       'updatedAt': FieldValue.serverTimestamp(),
       'lat': lat,
       'lng': lng,
+      'operatingHours': operatingHours,
+      'eligibility': eligibility,
+      'phone': phone,
     };
   }
+
+  /// Display string for operating hours (single source for list + detail).
+  String get operatingHoursDisplay => operatingHours?.trim().isNotEmpty == true
+      ? operatingHours!
+      : 'Call to confirm';
+
+  /// Display string for eligibility (single source for list + detail).
+  String get eligibilityDisplay => eligibility?.trim().isNotEmpty == true
+      ? eligibility!
+      : 'See description';
 }

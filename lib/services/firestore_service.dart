@@ -46,6 +46,12 @@ class FirestoreService {
     await _db.collection(_users).doc(uid).update({'points': FieldValue.increment(delta)});
   }
 
+  /// Partial update of user document (e.g. location only). Merges into existing doc.
+  Future<void> updateUserFields(String uid, Map<String, dynamic> fields) async {
+    if (fields.isEmpty) return;
+    await _db.collection(_users).doc(uid).update(fields);
+  }
+
   Stream<QuerySnapshot<Map<String, dynamic>>> aidResourcesStream() {
     return _db.collection(_aidResources).orderBy('createdAt', descending: true).snapshots();
   }

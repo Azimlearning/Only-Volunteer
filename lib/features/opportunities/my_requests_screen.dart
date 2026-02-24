@@ -59,6 +59,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                   figmaPurple.withOpacity(0.1),
                 ],
               ),
+              borderRadius: BorderRadius.circular(kCardRadius),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

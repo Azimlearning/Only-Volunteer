@@ -1,14 +1,18 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/aid_resource.dart';
+import '../../models/app_user.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/aid_generation_service.dart';
+import '../../services/location_service.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
 
@@ -17,6 +21,27 @@ const String _keyLastAidGeneratedAt = 'lastAidGeneratedAt';
 // Default reference: Kuala Lumpur
 const _defaultLat = 3.1390;
 const _defaultLng = 101.6869;
+
+/// Approximate state/region centers for map when device GPS is unavailable.
+LatLng _approxLatLngForLocation(String? location) {
+  if (location == null || location.isEmpty) return const LatLng(_defaultLat, _defaultLng);
+  final loc = location.toLowerCase();
+  if (loc.contains('kuala lumpur')) return const LatLng(3.1390, 101.6869);
+  if (loc.contains('selangor')) return const LatLng(3.0733, 101.5185);
+  if (loc.contains('johor')) return const LatLng(1.4927, 103.7414);
+  if (loc.contains('penang')) return const LatLng(5.4164, 100.3327);
+  if (loc.contains('perak')) return const LatLng(4.5921, 101.0901);
+  if (loc.contains('kelantan')) return const LatLng(6.1253, 102.2381);
+  if (loc.contains('pahang')) return const LatLng(3.8126, 103.3256);
+  if (loc.contains('sabah')) return const LatLng(5.9804, 116.0735);
+  if (loc.contains('sarawak')) return const LatLng(1.5535, 110.3593);
+  if (loc.contains('negeri sembilan')) return const LatLng(2.7258, 101.9424);
+  if (loc.contains('malacca') || loc.contains('melaka')) return const LatLng(2.1896, 102.2501);
+  if (loc.contains('kedah')) return const LatLng(6.1184, 100.3685);
+  if (loc.contains('terengganu')) return const LatLng(5.3117, 103.1324);
+  if (loc.contains('perlis')) return const LatLng(6.4443, 100.1984);
+  return const LatLng(_defaultLat, _defaultLng);
+}
 
 double _haversineKm(double lat1, double lng1, double lat2, double lng2) {
   const r = 6371.0; // Earth radius in km
@@ -52,7 +77,15 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
   static const int _itemsPerPage = 6;
   static const _defaultCenter = LatLng(3.1390, 101.6869); // Kuala Lumpur
 
-  static const _categories = ['All', 'Food', 'Clothes', 'Medical', 'Clothing', 'Shelter', 'Education', 'Hygiene', 'Transport'];
+  double? _userLat;
+  double? _userLng;
+  String? _userLocation;
+
+  double get _effectiveLat => _userLat ?? _defaultLat;
+  double get _effectiveLng => _userLng ?? _defaultLng;
+  LatLng get _mapCenter => LatLng(_effectiveLat, _effectiveLng);
+
+  static const _categories = ['All', 'Food', 'Clothing', 'Medical', 'Shelter', 'Education', 'Hygiene', 'Transport'];
 
   Timer? _refreshTimer;
   bool _generating = false;
@@ -62,10 +95,38 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
   void initState() {
     super.initState();
     _load();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _autoGenerate());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resolveUserLocation();
+      _autoGenerate();
+    });
     _refreshTimer = Timer.periodic(const Duration(days: 7), (_) {
       if (mounted) _autoGenerate();
     });
+  }
+
+  Future<void> _resolveUserLocation() async {
+    final loc = await LocationService.getCurrentLocation();
+    if (loc != null && mounted) {
+      setState(() {
+        _userLat = loc.lat;
+        _userLng = loc.lng;
+        _userLocation = loc.resolvedLocation;
+      });
+      _applyFilters();
+      _updateMapMarkers();
+      return;
+    }
+    final profileLoc = context.read<AuthNotifier>().appUser?.location;
+    if (profileLoc != null && profileLoc.isNotEmpty && profileLoc != 'Not set' && mounted) {
+      final approx = _approxLatLngForLocation(profileLoc);
+      setState(() {
+        _userLocation = profileLoc;
+        _userLat = approx.latitude;
+        _userLng = approx.longitude;
+      });
+      _applyFilters();
+      _updateMapMarkers();
+    }
   }
 
   /// Auto-generate only on first load or after 7 days (persisted across page refresh).
@@ -84,7 +145,11 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
     if (_generating || !mounted) return;
     setState(() => _generating = true);
     try {
-      final result = await AidGenerationService.generate();
+      final result = await AidGenerationService.generate(
+        lat: _userLat,
+        lng: _userLng,
+        location: _userLocation,
+      );
       if (result.ok) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt(_keyLastAidGeneratedAt, DateTime.now().millisecondsSinceEpoch);
@@ -110,7 +175,9 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final list = await _firestore.getAidResources(category: _category, urgency: _urgencyFilter);
+    // When "Clothing" is selected, fetch all and filter in _applyFilters (to include "Clothes")
+    final categoryParam = (_category == null || _category == 'Clothing') ? null : _category;
+    final list = await _firestore.getAidResources(category: categoryParam, urgency: _urgencyFilter);
     if (mounted) {
       setState(() { _list = list; _loading = false; });
       _applyFilters();
@@ -152,21 +219,26 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
             (r.description?.toLowerCase().contains(q) ?? false) ||
             (r.category?.toLowerCase().contains(q) ?? false);
         if (!matchText) return false;
+        if (_category != null && _category != 'All') {
+          if (_category == 'Clothing') {
+            if (r.category != 'Clothing' && r.category != 'Clothes') return false;
+          } else if (r.category != _category) {
+            return false;
+          }
+        }
         if (loc.isNotEmpty && (r.location?.toLowerCase().contains(loc) ?? false) == false) return false;
         if (maxKm != null && maxKm > 0 && (r.lat != null && r.lng != null)) {
-          final km = _haversineKm(_defaultLat, _defaultLng, r.lat!, r.lng!);
+          final km = _haversineKm(_effectiveLat, _effectiveLng, r.lat!, r.lng!);
           if (km > maxKm) return false;
         }
         return true;
       }).toList();
-      // Sort by distance when distance filter is on
-      if (maxKm != null && maxKm > 0) {
-        result.sort((a, b) {
-          final aKm = (a.lat != null && a.lng != null) ? _haversineKm(_defaultLat, _defaultLng, a.lat!, a.lng!) : double.infinity;
-          final bKm = (b.lat != null && b.lng != null) ? _haversineKm(_defaultLat, _defaultLng, b.lat!, b.lng!) : double.infinity;
-          return aKm.compareTo(bKm);
-        });
-      }
+      // Sort by distance when distance filter is on (or by default for "near you")
+      result.sort((a, b) {
+        final aKm = (a.lat != null && a.lng != null) ? _haversineKm(_effectiveLat, _effectiveLng, a.lat!, a.lng!) : double.infinity;
+        final bKm = (b.lat != null && b.lng != null) ? _haversineKm(_effectiveLat, _effectiveLng, b.lat!, b.lng!) : double.infinity;
+        return aKm.compareTo(bKm);
+      });
       _filtered = result;
       _currentPage = 0; // Reset to first page when filters change
       _updateMapMarkers();
@@ -220,32 +292,7 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              // Image display
-              if (r.imageUrl != null && r.imageUrl!.isNotEmpty) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: r.imageUrl!,
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      height: 200,
-                      color: Colors.grey[200],
-                      child: Center(
-                        child: CircularProgressIndicator(color: figmaOrange),
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) => Container(
-                      height: 200,
-                      color: Colors.grey[200],
-                      child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey[400]),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
+              const SizedBox(height: 16),
               Text(
                 r.title,
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: figmaBlack),
@@ -289,8 +336,8 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                   ),
                 ],
               ),
-              // Operating Hours section
-              const SizedBox(height: 20),
+              // Single source: Operating Hours (from resource)
+              const SizedBox(height: 16),
               const Text(
                 'Operating Hours',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack),
@@ -307,15 +354,17 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                   children: [
                     Icon(Icons.access_time, size: 18, color: figmaOrange),
                     const SizedBox(width: 8),
-                    Text(
-                      'Mon-Fri: 9AM-5PM',
-                      style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                    Expanded(
+                      child: Text(
+                        r.operatingHoursDisplay,
+                        style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                      ),
                     ),
                   ],
                 ),
               ),
-              // Eligibility section
-              const SizedBox(height: 20),
+              // Single source: Eligibility (from resource)
+              const SizedBox(height: 16),
               const Text(
                 'Eligibility',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack),
@@ -335,13 +384,25 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Open to all community members',
+                        r.eligibilityDisplay,
                         style: TextStyle(color: Colors.grey[700], fontSize: 14),
                       ),
                     ),
                   ],
                 ),
               ),
+              if (r.phone != null && r.phone!.trim().isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Contact',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack),
+                ),
+                const SizedBox(height: 8),
+                SelectableText(
+                  r.phone!,
+                  style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                ),
+              ],
               const SizedBox(height: 24),
               // Action buttons
               Row(
@@ -439,18 +500,26 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                     ],
                   ),
                 ),
-                if (_generating)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    onPressed: () => _generateAid(silent: false),
-                    tooltip: 'Refresh AI aid resources',
+                if (context.watch<AuthNotifier>().appUser?.role == UserRole.ngo ||
+                    context.watch<AuthNotifier>().appUser?.role == UserRole.admin) ...[
+                  FilledButton(
+                    onPressed: () => context.go('/create-aid'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: figmaOrange,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Add'),
                   ),
+                  const SizedBox(width: 8),
+                ],
+                FilledButton(
+                  onPressed: _generating ? null : () => _generateAid(silent: false),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: figmaOrange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(_generating ? 'Refreshing…' : 'Refresh'),
+                ),
               ],
             ),
           ),
@@ -562,19 +631,11 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                             : Column(
                                 children: [
                                   Expanded(
-                                    child: GridView.builder(
-                                      padding: const EdgeInsets.all(20),
-                                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        crossAxisSpacing: 20,
-                                        mainAxisSpacing: 20,
-                                        childAspectRatio: 0.82,
-                                      ),
-                                      itemCount: _paginatedItems.length,
-                                      itemBuilder: (_, i) {
-                                        final r = _paginatedItems[i];
-                                        return _AidCard(resource: r, onTap: () => _showAidDetails(r));
-                                      },
+                                    child: _TwoColumnAidList(
+                                      items: _paginatedItems,
+                                      refLat: _effectiveLat,
+                                      refLng: _effectiveLng,
+                                      onTap: _showAidDetails,
                                     ),
                                   ),
                                   // Pagination controls
@@ -661,8 +722,8 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                         : ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: GoogleMap(
-                              initialCameraPosition: const CameraPosition(
-                                target: _defaultCenter,
+                              initialCameraPosition: CameraPosition(
+                                target: _mapCenter,
                                 zoom: 10,
                               ),
                               markers: _mapMarkers,
@@ -698,15 +759,30 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
   }
 }
 
+// Card spacing tokens (align with card_ui_recommendations.md)
+const _kSpace4 = 4.0;
+const _kSpace8 = 8.0;
+const _kSpace12 = 12.0;
+const _kRadiusSm = 8.0;
+const _kRadiusMd = 12.0;
+const _kRadiusLg = 16.0;
+
 class _AidCard extends StatelessWidget {
-  const _AidCard({required this.resource, required this.onTap});
+  const _AidCard({
+    required this.resource,
+    required this.refLat,
+    required this.refLng,
+    required this.onTap,
+  });
 
   final AidResource resource;
+  final double refLat;
+  final double refLng;
   final VoidCallback onTap;
 
   String _getDistance() {
     if (resource.lat == null || resource.lng == null) return '';
-    final distanceKm = _haversineKm(_defaultLat, _defaultLng, resource.lat!, resource.lng!);
+    final distanceKm = _haversineKm(refLat, refLng, resource.lat!, resource.lng!);
     if (distanceKm < 1) {
       return '${(distanceKm * 1000).toStringAsFixed(0)}m';
     }
@@ -714,7 +790,7 @@ class _AidCard extends StatelessWidget {
   }
 
   double _haversineKm(double lat1, double lng1, double lat2, double lng2) {
-    const r = 6371.0; // Earth radius in km
+    const r = 6371.0;
     final dLat = (lat2 - lat1) * pi / 180;
     final dLng = (lng2 - lng1) * pi / 180;
     final a = sin(dLat / 2) * sin(dLat / 2) +
@@ -726,181 +802,277 @@ class _AidCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final distance = _getDistance();
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    final hasMap = resource.lat != null && resource.lng != null;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_kRadiusLg),
+        border: Border.all(color: Colors.grey[300]!),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 2, offset: const Offset(0, 1)),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Image
-              Expanded(
-                flex: 5,
-                child: resource.imageUrl != null && resource.imageUrl!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: CachedNetworkImage(
-                          imageUrl: resource.imageUrl!,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            color: Colors.grey[200],
-                            child: Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: figmaOrange,
-                                ),
-                              ),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: Colors.grey[200],
-                            child: Icon(Icons.image, size: 20, color: Colors.grey[400]),
-                          ),
-                        ),
-                      )
-                    : Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(Icons.image, size: 20, color: Colors.grey[400]),
-                      ),
-              ),
-              const SizedBox(height: 6),
-              // Title
-              Text(
-                resource.title,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: figmaBlack,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 3),
-              // Location with distance
-              if (resource.location != null)
-                Row(
-                  children: [
-                    Icon(Icons.location_on, size: 11, color: Colors.grey[600]),
-                    const SizedBox(width: 3),
-                    Expanded(
-                      child: Text(
-                        distance.isNotEmpty
-                            ? '$distance • ${resource.location!}'
-                            : resource.location!,
-                        style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              const SizedBox(height: 3),
-              // Type (Category)
-              if (resource.category != null)
-                Text(
-                  'Item Type: ${resource.category}',
-                  style: TextStyle(fontSize: 9, color: Colors.grey[600]),
-                ),
-              const SizedBox(height: 1),
-              // Operating Hours
-              Text(
-                'Operating Hours: 10am - 10pm',
-                style: TextStyle(fontSize: 9, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 1),
-              // Eligibility
-              Text(
-                'Walk In',
-                style: TextStyle(fontSize: 9, color: Colors.grey[600]),
-              ),
-              const Spacer(),
-              // Action buttons row
-              Row(
+        borderRadius: BorderRadius.circular(_kRadiusLg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(height: 4, color: figmaOrange),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(_kSpace12, _kSpace12, _kSpace12, _kSpace8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Message button
-                  IconButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Message feature coming soon')),
-                      );
-                    },
-                    icon: Container(
-                      padding: const EdgeInsets.all(5),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(5),
-                        border: Border.all(color: figmaOrange.withOpacity(0.3)),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          resource.title,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: figmaBlack,
+                            height: 1.35,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      child: Icon(Icons.chat_bubble_outline, size: 14, color: figmaOrange),
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    style: IconButton.styleFrom(
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      if (distance.isNotEmpty) ...[
+                        const SizedBox(width: _kSpace4),
+                        _PillBadge(
+                          label: distance,
+                          icon: Icons.near_me_rounded,
+                          bg: const Color(0xFFF5F5F5),
+                          fg: Colors.grey[700]!,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: _kSpace8),
+                  if (resource.location != null)
+                    _MetaRow(icon: Icons.location_on_outlined, text: resource.location!),
+                  const SizedBox(height: _kSpace4),
+                  _MetaRow(icon: Icons.access_time_rounded, text: resource.operatingHoursDisplay),
+                  const SizedBox(height: _kSpace8),
+                  Wrap(
+                    spacing: _kSpace4,
+                    runSpacing: _kSpace4,
+                    children: [
+                      if (resource.category != null)
+                        _PillBadge(
+                          label: resource.category!,
+                          icon: Icons.category_outlined,
+                          bg: const Color(0xFFE3F2FD),
+                          fg: const Color(0xFF1565C0),
+                        ),
+                      _PillBadge(
+                        label: 'Walk In',
+                        icon: Icons.how_to_reg_outlined,
+                        bg: const Color(0xFFE8F5E9),
+                        fg: const Color(0xFF2E7D32),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, thickness: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: _kSpace12, vertical: _kSpace8),
+              child: Row(
+                children: [
+                  _GhostIconBtn(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Message feature coming soon')),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  // Map/Location button
-                  if (resource.lat != null && resource.lng != null)
-                    IconButton(
-                      onPressed: () async {
-                        final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${resource.lat},${resource.lng}');
+                  const SizedBox(width: _kSpace8),
+                  if (hasMap)
+                    _GhostIconBtn(
+                      icon: Icons.map_outlined,
+                      onTap: () async {
+                        final uri = Uri.parse(
+                          'https://www.google.com/maps/dir/?api=1&destination=${resource.lat},${resource.lng}',
+                        );
                         if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          launchUrl(uri, mode: LaunchMode.externalApplication);
                         }
                       },
-                      icon: Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(5),
-                          border: Border.all(color: figmaOrange.withOpacity(0.3)),
-                        ),
-                        child: Icon(Icons.map_outlined, size: 14, color: figmaOrange),
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      style: IconButton.styleFrom(
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
                     ),
-                  if (resource.lat != null && resource.lng != null) const SizedBox(width: 4),
-                  // Check Eligibility button
+                  if (hasMap) const SizedBox(width: _kSpace8),
                   Expanded(
-                    child: FilledButton(
-                      onPressed: onTap,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: figmaOrange,
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text(
-                        'Check Eligibility',
-                        style: TextStyle(fontSize: 10),
+                    child: SizedBox(
+                      height: 36,
+                      child: FilledButton(
+                        onPressed: onTap,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: figmaOrange,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(_kRadiusMd),
+                          ),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          'Check Eligibility',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _PillBadge extends StatelessWidget {
+  const _PillBadge({
+    required this.label,
+    required this.icon,
+    required this.bg,
+    required this.fg,
+  });
+  final String label;
+  final IconData icon;
+  final Color bg;
+  final Color fg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: _kSpace8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: fg),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: fg),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Icon(icon, size: 12, color: Colors.grey[600]),
+        ),
+        const SizedBox(width: _kSpace4),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 11, color: Colors.grey[700], height: 1.5),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GhostIconBtn extends StatelessWidget {
+  const _GhostIconBtn({required this.icon, this.onTap});
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(_kRadiusSm),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAFAFA),
+          borderRadius: BorderRadius.circular(_kRadiusSm),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Icon(icon, size: 16, color: figmaOrange),
+      ),
+    );
+  }
+}
+
+class _TwoColumnAidList extends StatelessWidget {
+  const _TwoColumnAidList({
+    required this.items,
+    required this.refLat,
+    required this.refLng,
+    required this.onTap,
+  });
+  final List<AidResource> items;
+  final double refLat;
+  final double refLng;
+  final void Function(AidResource) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: (items.length / 2).ceil(),
+      itemBuilder: (_, rowIndex) {
+        final leftIndex = rowIndex * 2;
+        final rightIndex = leftIndex + 1;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: _kSpace12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _AidCard(
+                  resource: items[leftIndex],
+                  refLat: refLat,
+                  refLng: refLng,
+                  onTap: () => onTap(items[leftIndex]),
+                ),
+              ),
+              const SizedBox(width: _kSpace12),
+              Expanded(
+                child: rightIndex < items.length
+                    ? _AidCard(
+                        resource: items[rightIndex],
+                        refLat: refLat,
+                        refLng: refLng,
+                        onTap: () => onTap(items[rightIndex]),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

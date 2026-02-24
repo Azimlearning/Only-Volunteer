@@ -45,7 +45,7 @@ class AidGenerationService {
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 55));
+      ).timeout(const Duration(seconds: 90));
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
