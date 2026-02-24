@@ -13,6 +13,8 @@ class AppUser {
     this.location,
     this.skills = const [],
     this.interests = const [],
+    this.availability,
+    this.causes = const [],
     this.points = 0,
     this.badges = const [],
     this.createdAt,
@@ -27,6 +29,10 @@ class AppUser {
   final String? location;
   final List<String> skills;
   final List<String> interests;
+  /// e.g. "Weekends", "Mon-Fri evenings" for weighted matching.
+  final String? availability;
+  /// e.g. ["Animals", "Education", "Environment"] for weighted matching.
+  final List<String> causes;
   final int points;
   final List<String> badges;
   final DateTime? createdAt;
@@ -42,6 +48,8 @@ class AppUser {
       location: m['location'] as String?,
       skills: List<String>.from(m['skills'] ?? []),
       interests: List<String>.from(m['interests'] ?? []),
+      availability: m['availability'] as String?,
+      causes: List<String>.from(m['causes'] ?? []),
       points: (m['points'] as num?)?.toInt() ?? 0,
       badges: List<String>.from(m['badges'] ?? []),
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
@@ -75,6 +83,8 @@ class AppUser {
       'location': location,
       'skills': skills,
       'interests': interests,
+      'availability': availability,
+      'causes': causes,
       'points': points,
       'badges': badges,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),

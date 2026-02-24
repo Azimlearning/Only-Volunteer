@@ -10,3 +10,6 @@ export * from './chatbot-rag';
 export * from './analytics';
 export * from './skill-matching';
 export * from './orchestrator';
+export * from './opportunity-catalog';
+export * from './assessment';
+export * from './conversational-profiler';

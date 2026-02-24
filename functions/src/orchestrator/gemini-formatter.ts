@@ -32,7 +32,7 @@ function buildBaseSystemPrompt(contextBlock: string): string {
 You have access to real-time tools:
 - alerts: Active disaster/emergency alerts
 - analytics: Platform insights and impact stats
-- matching: AI-powered volunteer-to-activity matching
+- match_me_mini (Match Me): AI-powered volunteer matching with a short Q&A flow
 - donation_drives: Ongoing donation drives (we have the user's location in context; do not ask for it)
 - aidfinder: Aid resources (food banks, donation centers, etc.) — lists and summarizes; the Aid Finder page in the app does "nearest by location" separately
 

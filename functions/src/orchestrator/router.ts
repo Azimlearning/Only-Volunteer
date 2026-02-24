@@ -1,6 +1,6 @@
 import { PageContext } from './context-builder';
 
-export type ToolName = 'alerts' | 'analytics' | 'matching' | 'aidfinder' | 'donation_drives' | null;
+export type ToolName = 'alerts' | 'analytics' | 'match_me_mini' | 'aidfinder' | 'donation_drives' | null;
 
 const ALERT_KEYWORDS = [
   'alert', 'alerts', 'sos', 'crisis', 'emergency', 'current issues',
@@ -39,14 +39,14 @@ export function route(
     if (pageContext === 'analytics') return 'analytics';
     if (pageContext === 'aidfinder') return 'aidfinder';
     if (pageContext === 'alerts') return 'alerts';
-    if (pageContext === 'match') return 'matching';
+    if (pageContext === 'match') return 'match_me_mini';
   }
 
-  // Priority 2: Intent keywords from message
+  // Priority 2: Intent keywords from message (Match Me flow via match_me_mini)
   if (lower) {
     if (ALERT_KEYWORDS.some((k) => lower.includes(k))) return 'alerts';
     if (ANALYTICS_KEYWORDS.some((k) => lower.includes(k))) return 'analytics';
-    if (MATCHING_KEYWORDS.some((k) => lower.includes(k))) return 'matching';
+    if (MATCHING_KEYWORDS.some((k) => lower.includes(k))) return 'match_me_mini';
     if (DONATION_DRIVES_KEYWORDS.some((k) => lower.includes(k))) return 'donation_drives';
     if (AIDFINDER_KEYWORDS.some((k) => lower.includes(k))) return 'aidfinder';
   }
@@ -55,7 +55,7 @@ export function route(
   if (pageContext === 'analytics') return 'analytics';
   if (pageContext === 'aidfinder') return 'aidfinder';
   if (pageContext === 'alerts') return 'alerts';
-  if (pageContext === 'match') return 'matching';
+  if (pageContext === 'match') return 'match_me_mini';
 
   return null;
 }

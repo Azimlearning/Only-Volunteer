@@ -26,6 +26,7 @@ class VolunteerListing {
     this.acceptsMonetaryDonation = false,
     this.monetaryGoal,
     this.monetaryRaised = 0,
+    this.tags = const [],
   });
 
   final String id;
@@ -50,6 +51,8 @@ class VolunteerListing {
   final bool? acceptsMonetaryDonation;
   final double? monetaryGoal;
   final double? monetaryRaised;
+  /// AI-generated tags for matching (e.g. "Requires Car", "Weekend Only", "Graphic Design").
+  final List<String> tags;
 
   factory VolunteerListing.fromFirestore(DocumentSnapshot doc) {
     final m = doc.data() as Map<String, dynamic>? ?? {};
@@ -78,6 +81,7 @@ class VolunteerListing {
       acceptsMonetaryDonation: m['acceptsMonetaryDonation'] as bool? ?? false,
       monetaryGoal: (m['monetaryGoal'] as num?)?.toDouble(),
       monetaryRaised: (m['monetaryRaised'] as num?)?.toDouble() ?? 0,
+      tags: List<String>.from(m['tags'] ?? []),
     );
   }
 
@@ -104,6 +108,7 @@ class VolunteerListing {
       'acceptsMonetaryDonation': acceptsMonetaryDonation,
       'monetaryGoal': monetaryGoal,
       'monetaryRaised': monetaryRaised ?? 0,
+      'tags': tags,
     };
   }
 }

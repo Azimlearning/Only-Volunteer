@@ -323,15 +323,16 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
   }
 
   /// Orchestrator that returns both reply text and suggestion chips for quick replies.
-  Future<OrchestratorResult> chatWithOrchestratorFull(String message, String userId, {String pageContext = 'chat'}) async {
+  /// [metadata] optional, e.g. matchMeState for mini match-me flow in chatbot.
+  Future<OrchestratorResult> chatWithOrchestratorFull(String message, String userId, {String pageContext = 'chat', Map<String, dynamic>? metadata}) async {
     if (kIsWeb) {
-      return _chatWithOrchestratorHttpFull(message, userId, pageContext: pageContext);
+      return _chatWithOrchestratorHttpFull(message, userId, pageContext: pageContext, metadata: metadata);
     }
-    return _chatWithOrchestratorCallableFull(message, userId, pageContext: pageContext);
+    return _chatWithOrchestratorCallableFull(message, userId, pageContext: pageContext, metadata: metadata);
   }
 
   /// Web: call HTTP endpoint with CORS so browser allows the request.
-  Future<OrchestratorResult> _chatWithOrchestratorHttpFull(String message, String userId, {String pageContext = 'chat'}) async {
+  Future<OrchestratorResult> _chatWithOrchestratorHttpFull(String message, String userId, {String pageContext = 'chat', Map<String, dynamic>? metadata}) async {
     try {
       final projectId = Firebase.app().options.projectId ?? 'onlyvolunteer-e3066';
       final url = Uri.parse(
@@ -343,6 +344,7 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
         'message': message,
         'pageContext': pageContext,
         'autoExecute': false,
+        if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
       });
       print('Calling handleAIRequestHttp (web) with userId: $userId');
       final response = await http
@@ -399,7 +401,7 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
   }
 
   /// Non-web (mobile/desktop): use callable.
-  Future<OrchestratorResult> _chatWithOrchestratorCallableFull(String message, String userId, {String pageContext = 'chat'}) async {
+  Future<OrchestratorResult> _chatWithOrchestratorCallableFull(String message, String userId, {String pageContext = 'chat', Map<String, dynamic>? metadata}) async {
     try {
       final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
       final callable = functions.httpsCallable('handleAIRequest');
@@ -409,6 +411,7 @@ Draft a short, clear alert title and 1-2 sentence summary for volunteers. Be fac
             'message': message,
             'pageContext': pageContext,
             'autoExecute': false,
+            if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
           })
           .timeout(
             const Duration(seconds: 30),

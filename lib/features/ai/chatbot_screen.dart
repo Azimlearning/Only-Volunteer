@@ -102,7 +102,18 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null && _appUser != null) {
-        final result = await _gemini.chatWithOrchestratorFull(trimmed, uid, pageContext: 'chat');
+        Map<String, dynamic>? metadata;
+        if (_lastToolUsed == 'match_me_mini' &&
+            _lastToolData is Map &&
+            (_lastToolData as Map).containsKey('matchMeState')) {
+          metadata = {'matchMeState': (_lastToolData as Map)['matchMeState']};
+        }
+        final result = await _gemini.chatWithOrchestratorFull(
+          trimmed,
+          uid,
+          pageContext: 'chat',
+          metadata: metadata,
+        );
         reply = result.text;
         suggestions = result.suggestions ?? [];
         toolUsed = result.toolUsed;
@@ -224,7 +235,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           list.add(const SizedBox(height: 8));
         }
       }
-    } else if (tool == 'matching') {
+    } else if (tool == 'match_me_mini') {
       final topMatches = data['topMatches'];
       if (topMatches is List && topMatches.isNotEmpty) {
         list.add(Text('Suggested for you', style: Theme.of(context).textTheme.titleSmall));

@@ -6,7 +6,7 @@ import { checkChatLimit, checkToolLimit } from './rate-limiter';
 import { formatWithGemini, chatWithContext, generateSuggestions } from './gemini-formatter';
 import { runAnalyticsTool } from './tools/analytics-tool';
 import { runAlertsTool } from './tools/alerts-tool';
-import { runMatchingTool } from './tools/matching-tool';
+import { runMatchMeMiniTool } from './tools/match-me-mini-tool';
 import { runAidFinderTool } from './tools/aidfinder-tool';
 import { runDonationDrivesTool } from './tools/donation-drives-tool';
 import { getConversationHistory, appendMessage } from './conversation-memory';
@@ -62,8 +62,18 @@ export async function runHandleAIRequest(
       toolData = await runAnalyticsTool(userId, userContext, message ?? undefined);
     } else if (toolName === 'alerts') {
       toolData = await runAlertsTool(userId, userContext);
-    } else if (toolName === 'matching') {
-      toolData = await runMatchingTool(userId, userContext);
+    } else if (toolName === 'match_me_mini') {
+      const meta = data.metadata as { matchMeState?: import('./tools/match-me-mini-tool').MatchMeMiniState } | undefined;
+      const miniOut = await runMatchMeMiniTool(userId, userContext, message ?? undefined, meta);
+      if (miniOut.kind === 'question') {
+        toolData = {
+          step: miniOut.step,
+          question: miniOut.question,
+          matchMeState: miniOut.matchMeState,
+        };
+      } else {
+        toolData = { topMatches: miniOut.topMatches };
+      }
     } else if (toolName === 'aidfinder') {
       const opts = data.metadata as { category?: string; urgency?: string } | undefined;
       toolData = await runAidFinderTool(userId, userContext, opts);
@@ -79,7 +89,11 @@ export async function runHandleAIRequest(
   let text: string;
   try {
     if (toolData !== null && toolName) {
-      text = await formatWithGemini(userContext, toolName, toolData, message);
+      if (toolName === 'match_me_mini' && typeof toolData.question === 'string') {
+        text = toolData.question;
+      } else {
+        text = await formatWithGemini(userContext, toolName, toolData, message);
+      }
     } else if (message) {
       text = await chatWithContext(userContext, message, conversationHistory);
     } else {
@@ -106,7 +120,7 @@ export async function runHandleAIRequest(
   let suggestions: string[] = [];
   if (toolName === 'alerts') suggestions.push('Show me the latest alerts', 'Any SOS?');
   if (toolName === 'analytics') suggestions.push('What should we focus on?');
-  if (toolName === 'matching') suggestions.push('Find more matches', 'What else fits me?');
+  if (toolName === 'match_me_mini') suggestions.push('Find more matches', 'What else fits me?');
   if (toolName === 'aidfinder') suggestions.push('Find food banks', 'Nearby resources');
   if (toolName === 'donation_drives') suggestions.push('Find food drives', 'What can I donate?');
 
