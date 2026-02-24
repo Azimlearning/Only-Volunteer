@@ -8,6 +8,7 @@ import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/alerts_service.dart';
+import '../../services/location_service.dart';
 import '../../core/theme.dart';
 
 class AlertsScreen extends StatefulWidget {
@@ -40,13 +41,19 @@ class _AlertsScreenState extends State<AlertsScreen> {
     super.dispose();
   }
 
+  /// Prefer GPS-derived location, then profile location, for localised alerts.
+  Future<String?> _resolveUserLocation() async {
+    final gps = await LocationService.getCurrentLocation();
+    if (gps != null) return gps.resolvedLocation;
+    final auth = context.read<AuthNotifier>();
+    final profile = auth.appUser?.location;
+    if (profile != null && profile.isNotEmpty && profile != 'Not set') return profile;
+    return null;
+  }
+
   Future<void> _runAutoGenerate() async {
     if (!mounted) return;
-    final auth = context.read<AuthNotifier>();
-    final location = auth.appUser?.location;
-    final userLocation = (location != null && location.isNotEmpty && location != 'Not set')
-        ? location
-        : null;
+    final userLocation = await _resolveUserLocation();
     await triggerNewsAlertsGeneration(userLocation: userLocation);
   }
 
@@ -59,11 +66,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
     if (_generating || !mounted) return;
     setState(() => _generating = true);
     try {
-      final auth = context.read<AuthNotifier>();
-      final location = auth.appUser?.location;
-      final userLocation = (location != null && location.isNotEmpty && location != 'Not set')
-          ? location
-          : null;
+      final userLocation = await _resolveUserLocation();
       final result = await triggerNewsAlertsGeneration(userLocation: userLocation);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

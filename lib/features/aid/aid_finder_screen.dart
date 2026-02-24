@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -10,6 +11,8 @@ import '../../services/gemini_service.dart';
 import '../../services/aid_generation_service.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
+
+const String _keyLastAidGeneratedAt = 'lastAidGeneratedAt';
 
 // Default reference: Kuala Lumpur
 const _defaultLat = 3.1390;
@@ -53,23 +56,27 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
 
   Timer? _refreshTimer;
   bool _generating = false;
-  DateTime? _lastGenerated;
-  static const _genCooldown = Duration(hours: 12);
+  static const _genCooldown = Duration(days: 7);
 
   @override
   void initState() {
     super.initState();
     _load();
     WidgetsBinding.instance.addPostFrameCallback((_) => _autoGenerate());
-    _refreshTimer = Timer.periodic(const Duration(hours: 12), (_) {
+    _refreshTimer = Timer.periodic(const Duration(days: 7), (_) {
       if (mounted) _autoGenerate();
     });
   }
 
+  /// Auto-generate only on first load or after 7 days (persisted across page refresh).
   Future<void> _autoGenerate() async {
     if (!mounted) return;
-    if (_lastGenerated != null &&
-        DateTime.now().difference(_lastGenerated!) < _genCooldown) return;
+    final prefs = await SharedPreferences.getInstance();
+    final lastMs = prefs.getInt(_keyLastAidGeneratedAt);
+    if (lastMs != null) {
+      final last = DateTime.fromMillisecondsSinceEpoch(lastMs);
+      if (DateTime.now().difference(last) < _genCooldown) return;
+    }
     await _generateAid(silent: true);
   }
 
@@ -78,7 +85,10 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
     setState(() => _generating = true);
     try {
       final result = await AidGenerationService.generate();
-      _lastGenerated = DateTime.now();
+      if (result.ok) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(_keyLastAidGeneratedAt, DateTime.now().millisecondsSinceEpoch);
+      }
       if (mounted) {
         await _load();
         if (!silent && result.ok) {

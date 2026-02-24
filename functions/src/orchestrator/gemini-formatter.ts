@@ -66,6 +66,10 @@ export async function formatWithGemini(
   toolData: any,
   userMessage?: string
 ): Promise<string> {
+  if (toolUsed === 'analytics' && toolData?.answer && typeof toolData.answer === 'string') {
+    return toolData.answer;
+  }
+
   const contextBlock = contextToPromptBlock(userContext);
   const dataStr = JSON.stringify(toolData, null, 2);
   const basePrompt = buildBaseSystemPrompt(contextBlock);

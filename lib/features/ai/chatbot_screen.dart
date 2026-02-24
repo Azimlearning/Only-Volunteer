@@ -255,6 +255,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           list.add(const SizedBox(height: 8));
         }
       }
+    } else if (tool == 'analytics') {
+      final metrics = data['metrics'];
+      if (metrics is Map && metrics.isNotEmpty) {
+        list.add(Text('Your analytics', style: Theme.of(context).textTheme.titleSmall));
+        list.add(const SizedBox(height: 8));
+        list.add(_AnalyticsSummaryCard(metrics: Map<String, dynamic>.from(metrics)));
+        list.add(const SizedBox(height: 8));
+      }
     }
     return list;
   }
@@ -518,6 +526,69 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _AnalyticsSummaryCard extends StatelessWidget {
+  const _AnalyticsSummaryCard({required this.metrics});
+
+  final Map<String, dynamic> metrics;
+
+  static String _label(String key) {
+    switch (key) {
+      case 'hoursVolunteerism':
+        return 'Hours volunteered';
+      case 'rmDonations':
+        return 'Donations (RM)';
+      case 'pointsCollected':
+        return 'Points';
+      case 'totalVolunteers':
+        return 'Total volunteers';
+      case 'activeCampaigns':
+        return 'Active campaigns';
+      case 'impactFunds':
+        return 'Impact funds (RM)';
+      case 'numberOfUsers':
+        return 'Users';
+      case 'numberOfOrganisations':
+        return 'Organisations';
+      case 'activeEvents':
+        return 'Active events';
+      default:
+        return key;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = metrics.entries.take(3).toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardRadius),
+        side: BorderSide(color: figmaPurple.withOpacity(0.25)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: entries.map((e) {
+            final v = e.value;
+            final str = v is num ? (v is double ? v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 1) : v.toString()) : v.toString();
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(str, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: figmaBlack)),
+                const SizedBox(height: 4),
+                Text(_label(e.key), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+              ],
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 }

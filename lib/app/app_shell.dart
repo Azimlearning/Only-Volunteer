@@ -197,8 +197,7 @@ class AppShell extends StatelessWidget {
             ListTile(leading: const Icon(Icons.auto_awesome), title: const Text('Match Me'), onTap: () => context.go('/match')),
             ListTile(leading: const Icon(Icons.people), title: const Text('Feed'), onTap: () => context.go('/feed')),
             ListTile(leading: const Icon(Icons.emoji_events), title: const Text('Leaderboard'), onTap: () => context.go('/leaderboard')),
-            if (canManage)
-              ListTile(leading: const Icon(Icons.bar_chart), title: const Text('Analytics'), onTap: () => context.go('/analytics')),
+            ListTile(leading: const Icon(Icons.bar_chart), title: const Text('Analytics'), onTap: () => context.go('/analytics')),
             if (canManage) ...[
               const Divider(),
               ListTile(leading: const Icon(Icons.science), title: const Text('Developer'), onTap: () => context.go('/developer')),

@@ -59,7 +59,7 @@ export async function runHandleAIRequest(
   let toolData: any = null;
   try {
     if (toolName === 'analytics') {
-      toolData = await runAnalyticsTool(userId, userContext);
+      toolData = await runAnalyticsTool(userId, userContext, message ?? undefined);
     } else if (toolName === 'alerts') {
       toolData = await runAlertsTool(userId, userContext);
     } else if (toolName === 'matching') {

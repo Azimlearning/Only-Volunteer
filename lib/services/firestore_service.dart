@@ -287,6 +287,93 @@ class FirestoreService {
     return total;
   }
 
+  // --- Analytics (role-scoped) ---
+
+  /// User: total hours from attendances, total RM from donations, points from user doc.
+  Future<({double hoursVolunteerism, double rmDonations, int points})> getUserAnalyticsMetrics(String userId) async {
+    try {
+      final attendances = await getAttendancesForUser(userId);
+      final hoursVolunteerism = attendances.fold<double>(0, (s, a) => s + (a.hours ?? 0));
+      final donations = await getDonationsByUser(userId);
+      final rmDonations = donations.fold<double>(0, (s, d) => s + d.amount);
+      final user = await getUser(userId);
+      final points = user?.points ?? 0;
+      return (hoursVolunteerism: hoursVolunteerism, rmDonations: rmDonations, points: points);
+    } catch (e) {
+      return (hoursVolunteerism: 0.0, rmDonations: 0.0, points: 0);
+    }
+  }
+
+  /// Organizer: total volunteers (distinct users on org listings/drives), active campaigns count, impact funds (donations to org drives).
+  Future<({int totalVolunteers, int activeCampaigns, double impactFunds})> getOrganizerAnalyticsMetrics(String uid) async {
+    try {
+      final drivesSnap = await _db.collection(_donationDrives).where('ngoId', isEqualTo: uid).get();
+      final listingsSnap = await _db.collection(_volunteerListings).where('organizationId', isEqualTo: uid).get();
+      final driveIds = drivesSnap.docs.map((d) => d.id).toList();
+      final listingIds = listingsSnap.docs.map((d) => d.id).toList();
+
+      int totalVolunteers = 0;
+      final Set<String> userIds = {};
+      if (listingIds.isNotEmpty) {
+        for (var i = 0; i < listingIds.length; i += 10) {
+          final chunk = listingIds.skip(i).take(10).toList();
+          final attSnap = await _db.collection(_attendances).where('listingId', whereIn: chunk).get();
+          for (final doc in attSnap.docs) {
+            final uidAtt = doc.data()['userId'] as String?;
+            if (uidAtt != null) userIds.add(uidAtt);
+          }
+        }
+      }
+      totalVolunteers = userIds.length;
+
+      final now = DateTime.now();
+      int activeDrives = 0;
+      for (final doc in drivesSnap.docs) {
+        final d = DonationDrive.fromFirestore(doc);
+        if (d.endDate == null || d.endDate!.isAfter(now)) activeDrives++;
+      }
+      int activeListings = 0;
+      for (final doc in listingsSnap.docs) {
+        final l = VolunteerListing.fromFirestore(doc);
+        if (l.endTime == null || l.endTime!.isAfter(now)) activeListings++;
+      }
+      final activeCampaigns = activeDrives + activeListings;
+
+      double impactFunds = 0;
+      if (driveIds.isNotEmpty) {
+        for (var i = 0; i < driveIds.length; i += 10) {
+          final chunk = driveIds.skip(i).take(10).toList();
+          final donSnap = await _db.collection(_donations).where('driveId', whereIn: chunk).get();
+          for (final doc in donSnap.docs) {
+            impactFunds += (doc.data()['amount'] as num?)?.toDouble() ?? 0;
+          }
+        }
+      }
+
+      return (totalVolunteers: totalVolunteers, activeCampaigns: activeCampaigns, impactFunds: impactFunds);
+    } catch (e) {
+      return (totalVolunteers: 0, activeCampaigns: 0, impactFunds: 0.0);
+    }
+  }
+
+  /// Admin: user count, org (NGO) count, active events (listings + drives).
+  Future<({int numberOfUsers, int numberOfOrganisations, int activeEvents})> getAdminAnalyticsMetrics() async {
+    try {
+      final counts = await getAnalyticsCounts();
+      final usersSnap = await _db.collection(_users).get();
+      int nOrgs = 0;
+      for (final doc in usersSnap.docs) {
+        final role = doc.data()['role'];
+        if (role == 'ngo' || role == 'org') nOrgs++;
+      }
+      final numberOfUsers = counts['users'] ?? 0;
+      final activeEvents = (counts['listings'] ?? 0) + (counts['drives'] ?? 0);
+      return (numberOfUsers: numberOfUsers, numberOfOrganisations: nOrgs, activeEvents: activeEvents);
+    } catch (e) {
+      return (numberOfUsers: 0, numberOfOrganisations: 0, activeEvents: 0);
+    }
+  }
+
   // --- Micro donations (Opportunities / Donations tab) ---
 
   Future<List<MicroDonationRequest>> getMicroDonations({
