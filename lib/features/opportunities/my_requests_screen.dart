@@ -246,6 +246,47 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
+                  if (r.status == MicroDonationStatus.open) ...[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final updated = MicroDonationRequest(
+                            id: r.id,
+                            title: r.title,
+                            description: r.description,
+                            category: r.category,
+                            requesterId: r.requesterId,
+                            requesterName: r.requesterName,
+                            requesterType: r.requesterType,
+                            itemNeeded: r.itemNeeded,
+                            quantity: r.quantity,
+                            urgency: r.urgency,
+                            location: r.location,
+                            lat: r.lat,
+                            lng: r.lng,
+                            status: MicroDonationStatus.fulfilled,
+                            fulfilledBy: r.fulfilledBy,
+                            createdAt: r.createdAt,
+                            updatedAt: DateTime.now(),
+                            qrCodeUrl: r.qrCodeUrl,
+                            bank: r.bank,
+                            accountName: r.accountName,
+                            accountNumber: r.accountNumber,
+                          );
+                          await _firestore.updateMicroDonationRequest(updated);
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (mounted) _load();
+                        },
+                        icon: const Icon(Icons.check_circle_outline, size: 18),
+                        label: const Text('Completed'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.green,
+                          side: const BorderSide(color: Colors.green),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () async {
@@ -397,11 +438,11 @@ class _StatusChip extends StatelessWidget {
     switch (status) {
       case MicroDonationStatus.open:
         color = Colors.orange;
-        label = 'Open';
+        label = 'Ongoing';
         break;
       case MicroDonationStatus.fulfilled:
         color = Colors.green;
-        label = 'Fulfilled';
+        label = 'Complete';
         break;
       case MicroDonationStatus.cancelled:
         color = Colors.grey;
