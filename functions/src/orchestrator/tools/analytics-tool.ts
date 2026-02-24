@@ -2,6 +2,12 @@ import * as admin from 'firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GEMINI_MODEL, getGeminiApiKey } from '../../gemini-config';
 import type { UserContext } from '../context-builder';
+import {
+  getOrchestratorDescriptivePrompt,
+  getOrchestratorPrescriptivePrompt,
+  getOrchestratorNLPAnswerPrompt,
+  type AnalyticsRole,
+} from '../../prompts/analytics-prompts';
 
 const db = admin.firestore();
 const gemini = new GoogleGenerativeAI(getGeminiApiKey());
@@ -148,29 +154,21 @@ async function gatherAdminMetrics(): Promise<Record<string, number | string>> {
 
 async function generateDescriptive(role: Role, metrics: Record<string, number | string>): Promise<string> {
   const metricsStr = JSON.stringify(metrics);
-  const roleLabel = role === 'volunteer' ? 'volunteer' : role === 'ngo' ? 'organizer' : 'admin';
-  const prompt = `As a ${roleLabel} on a volunteering platform, summarize these metrics in 2-4 short sentences (what happened). Be encouraging and data-driven.\nMetrics: ${metricsStr}`;
+  const prompt = getOrchestratorDescriptivePrompt(role as AnalyticsRole, metricsStr);
   const result = await model.generateContent(prompt);
   return result.response.text()?.trim() || 'No descriptive insights generated.';
 }
 
 async function generatePrescriptive(role: Role, metrics: Record<string, number | string>): Promise<string> {
   const metricsStr = JSON.stringify(metrics);
-  const prompt = `Based on these ${role} metrics, give 2-3 actionable recommendations. Be concise.\nMetrics: ${metricsStr}`;
+  const prompt = getOrchestratorPrescriptivePrompt(role as AnalyticsRole, metricsStr);
   const result = await model.generateContent(prompt);
   return result.response.text()?.trim() || 'No prescriptive insights generated.';
 }
 
 async function generateNLPAnswer(role: Role, metrics: Record<string, number | string>, userMessage: string): Promise<string> {
   const metricsStr = JSON.stringify(metrics, null, 2);
-  const prompt = `You are an analytics assistant for a volunteering platform. The user (role: ${role}) asked a question about their analytics. Answer it using ONLY the following metrics. Be concise (2-4 sentences), friendly, and actionable. Do not make up numbers.
-
-Metrics:
-${metricsStr}
-
-User question: "${userMessage}"
-
-Answer:`;
+  const prompt = getOrchestratorNLPAnswerPrompt(role as AnalyticsRole, metricsStr, userMessage);
   const result = await model.generateContent(prompt);
   return result.response.text()?.trim() || "I don't have enough data to answer that specifically. Check your Analytics page for details.";
 }

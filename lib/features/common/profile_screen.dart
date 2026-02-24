@@ -10,8 +10,9 @@ import '../../core/theme.dart';
 import '../volunteer/my_activities_screen.dart';
 import '../opportunities/my_requests_screen.dart';
 import '../analytics/analytics_screen.dart';
+import '../admin/developer_screen.dart';
 
-enum _ProfileSection { home, personalInfo, myActivity, myRequest, analytics }
+enum _ProfileSection { home, personalInfo, myActivity, myRequest, analytics, developer }
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -44,15 +45,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Expanded(
           child: _section == _ProfileSection.myRequest
               ? const Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: EdgeInsets.all(24),
                   child: MyRequestsScreen(),
                 )
               : _section == _ProfileSection.analytics
                   ? const Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: EdgeInsets.all(24),
                       child: AnalyticsScreen(),
                     )
-                  : SingleChildScrollView(
+                  : _section == _ProfileSection.developer
+                      ? const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: DeveloperScreen(),
+                        )
+                      : SingleChildScrollView(
                       padding: const EdgeInsets.all(24),
                       child: _section == _ProfileSection.home
                           ? _ProfileHomeContent(user: user)
@@ -145,6 +151,13 @@ class _ProfileSidebar extends StatelessWidget {
             selected: selected == _ProfileSection.analytics,
             onTap: () => onSelect(_ProfileSection.analytics),
           ),
+          if (user.role == UserRole.admin)
+            _SidebarTile(
+              icon: Icons.science,
+              label: 'Developer',
+              selected: selected == _ProfileSection.developer,
+              onTap: () => onSelect(_ProfileSection.developer),
+            ),
         ],
       ),
     );
@@ -274,35 +287,6 @@ class _ProfileHomeContent extends StatelessWidget {
           ),
           const SizedBox(height: 24),
         ],
-        const Text('Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: figmaBlack)),
-        const SizedBox(height: 16),
-        Wrap(
-          alignment: WrapAlignment.end,
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            if (user.role == UserRole.ngo || user.role == UserRole.admin)
-              FilledButton.icon(
-                onPressed: () => context.go('/create-drive'),
-                icon: const Icon(Icons.add_circle_outline, size: 20),
-                label: const Text('Create Drive'),
-                style: FilledButton.styleFrom(backgroundColor: figmaPurple, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-              ),
-            FilledButton.icon(
-              onPressed: () => context.go('/create-opportunity'),
-              icon: const Icon(Icons.work_outline, size: 20),
-              label: const Text('Create Opportunity'),
-              style: FilledButton.styleFrom(backgroundColor: figmaOrange, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-            ),
-            if (user.role == UserRole.admin)
-              OutlinedButton.icon(
-                onPressed: () => context.go('/developer'),
-                icon: const Icon(Icons.science, size: 20),
-                label: const Text('Developer'),
-                style: OutlinedButton.styleFrom(foregroundColor: figmaPurple, side: BorderSide(color: figmaPurple.withOpacity(0.8)), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-              ),
-          ],
-        ),
       ],
     );
   }

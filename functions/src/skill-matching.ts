@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GEMINI_MODEL, getGeminiApiKey } from './gemini-config';
+import { buildSkillMatchExplanationPrompt } from './prompts/match-me';
 
 const gemini = new GoogleGenerativeAI(getGeminiApiKey());
 const model = gemini.getGenerativeModel({ model: GEMINI_MODEL });
@@ -115,21 +116,7 @@ function calculateMatchScore(user: any, activity: any): number {
 }
 
 async function explainMatch(user: any, activity: any, score: number): Promise<string> {
-  const prompt = `Explain why this volunteer opportunity matches this user (score: ${score}/100).
-
-User:
-- Skills: ${user.skills?.join(', ') || 'None'}
-- Interests: ${user.interests?.join(', ') || 'None'}
-- Location: ${user.location || 'N/A'}
-
-Activity:
-- Title: ${activity.title}
-- Description: ${activity.description || 'N/A'}
-- Required Skills: ${activity.skillsRequired?.join(', ') || 'None'}
-- Location: ${activity.location || 'N/A'}
-- Slots Available: ${(activity.slotsTotal || 0) - (activity.slotsFilled || 0)}
-
-Provide a brief, friendly explanation (1-2 sentences) of why this is a good match.`;
+  const prompt = buildSkillMatchExplanationPrompt(user, activity, score);
 
   try {
     const result = await model.generateContent(prompt);

@@ -47,10 +47,10 @@ class SeedDataService {
     count += await seedAidResources(systemUserId);
     count += await seedMicroDonations(systemUserId);
     count += await seedAttendances(systemUserId);
-    count += await seedECertificates(systemUserId);
     count += await seedDonations(systemUserId);
     count += await seedAlerts(systemUserId);
     count += await seedFeedPosts(systemUserId);
+    count += await seedAnalyticsForAllSides(systemUserId);
     return count;
   }
 
@@ -79,7 +79,7 @@ class SeedDataService {
   }
 
   Future<int> seedDonationDrives(String? ngoId) async {
-    // Official Campaigns - 5 drives across 4 campaign categories with images
+    // Official Campaigns - 7 drives across 4 campaign categories (no images)
     final drives = [
       // Disaster Relief
       {
@@ -97,7 +97,6 @@ class SeedDataService {
         'address': 'Jalan Hospital, 25100 Kuantan, Pahang',
         'lat': 3.8245,
         'lng': 103.3232,
-        'bannerUrl': 'https://images.unsplash.com/photo-1593113598332-cd288d3dbeb2?w=800&h=400&fit=crop',
         'startDate': DateTime.now().subtract(const Duration(days: 10)),
         'endDate': DateTime.now().add(const Duration(days: 20)),
       },
@@ -116,7 +115,6 @@ class SeedDataService {
         'address': 'Dewan Seri Selangor, Shah Alam',
         'lat': 3.0733,
         'lng': 101.5185,
-        'bannerUrl': 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&h=400&fit=crop',
         'startDate': DateTime.now().subtract(const Duration(days: 5)),
         'endDate': DateTime.now().add(const Duration(days: 25)),
       },
@@ -136,7 +134,6 @@ class SeedDataService {
         'address': 'Jalan Tabuan, 93150 Kuching, Sarawak',
         'lat': 1.5535,
         'lng': 110.3593,
-        'bannerUrl': 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800&h=400&fit=crop',
         'startDate': DateTime.now().subtract(const Duration(days: 15)),
         'endDate': DateTime.now().add(const Duration(days: 45)),
       },
@@ -155,7 +152,6 @@ class SeedDataService {
         'address': 'Jalan Tun Razak, 50400 Kuala Lumpur',
         'lat': 3.1390,
         'lng': 101.6869,
-        'bannerUrl': 'https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=800&h=400&fit=crop',
         'startDate': DateTime.now(),
         'endDate': DateTime.now().add(const Duration(days: 30)),
       },
@@ -175,7 +171,6 @@ class SeedDataService {
         'address': 'Jalan Sultan Ibrahim, 15000 Kota Bharu',
         'lat': 6.1252,
         'lng': 102.2381,
-        'bannerUrl': 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=400&fit=crop',
         'startDate': DateTime.now().subtract(const Duration(days: 20)),
         'endDate': DateTime.now().add(const Duration(days: 60)),
       },
@@ -195,7 +190,6 @@ class SeedDataService {
         'address': 'Kampung Pulai, Gua Musang, Kelantan',
         'lat': 4.8845,
         'lng': 101.9683,
-        'bannerUrl': 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=400&fit=crop',
         'startDate': DateTime.now().subtract(const Duration(days: 30)),
         'endDate': DateTime.now().add(const Duration(days: 90)),
       },
@@ -214,7 +208,6 @@ class SeedDataService {
         'address': 'Jalan SS2/24, 47300 Petaling Jaya',
         'lat': 3.1068,
         'lng': 101.6057,
-        'bannerUrl': 'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&h=400&fit=crop',
         'startDate': DateTime.now().subtract(const Duration(days: 7)),
         'endDate': DateTime.now().add(const Duration(days: 23)),
       },
@@ -239,7 +232,7 @@ class SeedDataService {
         address: d['address'] as String,
         lat: d['lat'] as double,
         lng: d['lng'] as double,
-        bannerUrl: d['bannerUrl'] as String,
+        bannerUrl: d['bannerUrl'] as String?,
         startDate: d['startDate'] as DateTime,
         endDate: d['endDate'] as DateTime,
         createdAt: DateTime.now(),
@@ -266,7 +259,6 @@ class SeedDataService {
         'slotsFilled': 15,
         'startTime': now.add(const Duration(days: 2)),
         'endTime': now.add(const Duration(days: 2, hours: 6)),
-        'imageUrl': 'https://images.unsplash.com/photo-1593113598332-cd288d3dbeb2?w=800&h=400&fit=crop',
         'visibility': RequestVisibility.public,
       },
       {
@@ -281,7 +273,6 @@ class SeedDataService {
         'slotsFilled': 12,
         'startTime': now.add(const Duration(days: 1)),
         'endTime': now.add(const Duration(days: 1, hours: 4)),
-        'imageUrl': 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=800&h=400&fit=crop',
         'visibility': RequestVisibility.public,
       },
       // Physical Labor - Community
@@ -297,7 +288,6 @@ class SeedDataService {
         'slotsFilled': 23,
         'startTime': now.add(const Duration(days: 7)),
         'endTime': now.add(const Duration(days: 7, hours: 4)),
-        'imageUrl': 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&h=400&fit=crop',
         'visibility': RequestVisibility.public,
       },
       {
@@ -312,7 +302,6 @@ class SeedDataService {
         'slotsFilled': 28,
         'startTime': now.add(const Duration(days: 14)),
         'endTime': now.add(const Duration(days: 14, hours: 5)),
-        'imageUrl': 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=800&h=400&fit=crop',
         'visibility': RequestVisibility.public,
       },
       // Social & Care - Welfare
@@ -328,7 +317,6 @@ class SeedDataService {
         'slotsFilled': 8,
         'startTime': now.add(const Duration(days: 5)),
         'endTime': now.add(const Duration(days: 5, hours: 3)),
-        'imageUrl': 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=800&h=400&fit=crop',
         'visibility': RequestVisibility.public,
       },
       // Skill-Based - Education
@@ -344,7 +332,6 @@ class SeedDataService {
         'slotsFilled': 6,
         'startTime': now.add(const Duration(days: 3)),
         'endTime': now.add(const Duration(days: 3, hours: 2)),
-        'imageUrl': 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=400&fit=crop',
         'visibility': RequestVisibility.public,
       },
       // Skill-Based - Professional
@@ -360,7 +347,6 @@ class SeedDataService {
         'slotsFilled': 2,
         'startTime': now.add(const Duration(days: 10)),
         'endTime': now.add(const Duration(days: 10, hours: 4)),
-        'imageUrl': 'https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?w=800&h=400&fit=crop',
         'visibility': RequestVisibility.public,
       },
       // Add some private requests for testing
@@ -422,8 +408,9 @@ class SeedDataService {
         'urgency': 'low',
         'lat': 3.1725,
         'lng': 101.7020,
-        'imageUrl': 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=800&h=400&fit=crop',
+        'operatingHours': 'Mon-Sat 9am-4pm',
         'eligibility': 'Open to all',
+        'phone': '03-2614 1234',
       },
       {
         'title': 'Soup Kitchen - Petaling Jaya',
@@ -433,8 +420,9 @@ class SeedDataService {
         'urgency': 'low',
         'lat': 3.1068,
         'lng': 101.6057,
-        'imageUrl': 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=800&h=400&fit=crop',
+        'operatingHours': 'Daily 11am-2pm',
         'eligibility': 'Open to all',
+        'phone': '03-7956 7890',
       },
       {
         'title': 'Community Pantry - Ampang',
@@ -444,8 +432,9 @@ class SeedDataService {
         'urgency': 'low',
         'lat': 3.1589,
         'lng': 101.7626,
-        'imageUrl': 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=800&h=400&fit=crop',
+        'operatingHours': '24/7',
         'eligibility': 'Open to all',
+        'phone': '03-4296 5555',
       },
       // Shelter & Safety
       {
@@ -456,8 +445,9 @@ class SeedDataService {
         'urgency': 'medium',
         'lat': 3.8245,
         'lng': 103.3232,
-        'imageUrl': 'https://images.unsplash.com/photo-1593113598332-cd288d3dbeb2?w=800&h=400&fit=crop',
+        'operatingHours': '24/7 during emergencies',
         'eligibility': 'Disaster victims',
+        'phone': '09-512 3456',
       },
       {
         'title': 'Homeless Support Center - KL',
@@ -467,8 +457,9 @@ class SeedDataService {
         'urgency': 'low',
         'lat': 3.1390,
         'lng': 101.6869,
-        'imageUrl': 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&h=400&fit=crop',
+        'operatingHours': 'Mon-Fri 8am-6pm',
         'eligibility': 'Open to all',
+        'phone': '03-2698 1234',
       },
       {
         'title': 'Women\'s Shelter - Selangor',
@@ -478,8 +469,9 @@ class SeedDataService {
         'urgency': 'high',
         'lat': 3.0733,
         'lng': 101.5185,
-        'imageUrl': 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&h=400&fit=crop',
+        'operatingHours': '24/7 helpline',
         'eligibility': 'Women and children in need',
+        'phone': '03-7956 0000',
       },
       // Health
       {
@@ -490,8 +482,9 @@ class SeedDataService {
         'urgency': 'low',
         'lat': 3.1068,
         'lng': 101.6057,
-        'imageUrl': 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800&h=400&fit=crop',
+        'operatingHours': 'Mon-Fri 9am-5pm',
         'eligibility': 'Registered poor only',
+        'phone': '03-7956 2345',
       },
       {
         'title': 'Health Aid Center - Ampang',
@@ -501,8 +494,9 @@ class SeedDataService {
         'urgency': 'low',
         'lat': 3.1589,
         'lng': 101.7626,
-        'imageUrl': 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800&h=400&fit=crop',
+        'operatingHours': 'Mon-Thu 9am-4pm',
         'eligibility': 'Open to all',
+        'phone': '03-4296 7890',
       },
       // Material Goods
       {
@@ -513,8 +507,9 @@ class SeedDataService {
         'urgency': 'low',
         'lat': 3.1390,
         'lng': 101.6869,
-        'imageUrl': 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=400&fit=crop',
+        'operatingHours': 'Mon-Fri 10am-4pm',
         'eligibility': 'Registered poor only',
+        'phone': '03-2698 5678',
       },
       {
         'title': 'School Uniform Bank - Selangor',
@@ -524,8 +519,9 @@ class SeedDataService {
         'urgency': 'low',
         'lat': 3.0733,
         'lng': 101.5185,
-        'imageUrl': 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=400&fit=crop',
+        'operatingHours': 'Mon-Thu 9am-3pm',
         'eligibility': 'Students from low-income families',
+        'phone': '03-5544 3210',
       },
     ];
 
@@ -546,6 +542,9 @@ class SeedDataService {
         lat: (r['lat'] as num).toDouble(),
         lng: (r['lng'] as num).toDouble(),
         imageUrl: r['imageUrl'] as String?,
+        operatingHours: r['operatingHours'] as String?,
+        eligibility: r['eligibility'] as String?,
+        phone: r['phone'] as String?,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -834,5 +833,29 @@ class SeedDataService {
       await _firestore.addDonation(donation);
     }
     return donations.length;
+  }
+
+  /// Seeds data so analytics show non-zero for user, org, and admin views.
+  Future<int> seedAnalyticsForAllSides(String? systemUserId) async {
+    var count = 0;
+    // Create demo org user so admin and org views have data
+    final demoOrgRef = _db.collection('users').doc();
+    await demoOrgRef.set({
+      'role': 'ngo',
+      'displayName': 'Demo Org',
+      'email': 'demo.org@seed.local',
+    }, SetOptions(merge: true));
+    count += 1;
+    final demoOrgUid = demoOrgRef.id;
+
+    // Org-side: drives and listings for the demo org
+    count += await seedDonationDrives(demoOrgUid);
+    count += await seedVolunteerOpportunities(demoOrgUid);
+
+    // User-side: attendances and donations (use existing get* so they attach to demo org's listings/drives)
+    count += await seedAttendances(systemUserId);
+    count += await seedDonations(systemUserId);
+
+    return count;
   }
 }

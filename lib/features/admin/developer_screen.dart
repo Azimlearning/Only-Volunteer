@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:go_router/go_router.dart';
 import '../../services/seed_data_service.dart';
 import '../../core/theme.dart';
-import 'test_functions_screen.dart';
 
 class DeveloperScreen extends StatefulWidget {
   const DeveloperScreen({super.key});
@@ -46,6 +44,22 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
+      }
+    }
+  }
+
+  Future<void> _seedSection(String label, Future<int> Function() seedFn) async {
+    setState(() { _loading = true; _message = null; });
+    try {
+      final count = await seedFn();
+      if (mounted) {
+        setState(() { _loading = false; _message = 'Added $count entries for $label.'; _success = true; });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_message!), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() { _loading = false; _message = 'Error: $e'; _success = false; });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -146,25 +160,42 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
                       children: [
                         const Text('Seed Data for Core Pages', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 16),
-                        const _CorePageInfo(
+                        _SeedableRow(
                           icon: Icons.search,
                           title: 'Aid Finder',
-                          description: '10 aid resources with images, locations, and categories',
+                          description: '10 aid resources with locations, categories, and operating hours',
                           color: figmaOrange,
+                          loading: _loading,
+                          onSeed: () => _seedSection('Aid Finder', () async {
+                            final uid = FirebaseAuth.instance.currentUser?.uid;
+                            return await _seed.seedAidResources(uid);
+                          }),
                         ),
                         const SizedBox(height: 12),
-                        const _CorePageInfo(
+                        _SeedableRow(
                           icon: Icons.volunteer_activism,
                           title: 'Donation Drives',
-                          description: '7 donation drives with progress tracking and images',
+                          description: '7 donation drives with progress tracking',
                           color: figmaPurple,
+                          loading: _loading,
+                          onSeed: () => _seedSection('Donation Drives', () async {
+                            final uid = FirebaseAuth.instance.currentUser?.uid;
+                            return await _seed.seedDonationDrives(uid);
+                          }),
                         ),
                         const SizedBox(height: 12),
-                        const _CorePageInfo(
+                        _SeedableRow(
                           icon: Icons.work,
-                          title: 'Opportunities',
+                          title: 'Opportunity (volunteering/donation)',
                           description: '7 volunteer opportunities + 5 micro-donation requests',
                           color: figmaOrange,
+                          loading: _loading,
+                          onSeed: () => _seedSection('Opportunity', () async {
+                            final uid = FirebaseAuth.instance.currentUser?.uid;
+                            final a = await _seed.seedVolunteerOpportunities(uid);
+                            final b = await _seed.seedMicroDonations(uid);
+                            return a + b;
+                          }),
                         ),
                         const SizedBox(height: 12),
                         const _CorePageInfo(
@@ -174,18 +205,39 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
                           color: figmaPurple,
                         ),
                         const SizedBox(height: 12),
-                        const _CorePageInfo(
+                        _SeedableRow(
                           icon: Icons.event,
-                          title: 'Profile (My Activity)',
-                          description: 'Event participation, requests, analytics in Profile',
+                          title: 'My Activities (participation/ongoing)',
+                          description: 'Event participation: donation drives, volunteering and donation opportunities joined',
                           color: figmaOrange,
+                          loading: _loading,
+                          onSeed: () => _seedSection('My Activities', () async {
+                            final uid = FirebaseAuth.instance.currentUser?.uid;
+                            final a = await _seed.seedAttendances(uid);
+                            final b = await _seed.seedDonations(uid);
+                            return a + b;
+                          }),
                         ),
                         const SizedBox(height: 12),
-                        const _CorePageInfo(
+                        _SeedableRow(
                           icon: Icons.list_alt,
-                          title: 'My Requests',
-                          description: '5 micro-donation requests (some fulfilled)',
+                          title: 'My Request',
+                          description: 'Micro-donation requests (volunteering/donation opportunity style)',
                           color: figmaPurple,
+                          loading: _loading,
+                          onSeed: () => _seedSection('My Request', () async {
+                            final uid = FirebaseAuth.instance.currentUser?.uid;
+                            return await _seed.seedMicroDonations(uid);
+                          }),
+                        ),
+                        const SizedBox(height: 12),
+                        _SeedableRow(
+                          icon: Icons.bar_chart,
+                          title: 'Analytics (all 3)',
+                          description: 'User, org, and admin analytics data',
+                          color: figmaOrange,
+                          loading: _loading,
+                          onSeed: () => _seedSection('Analytics', () => _seed.seedAnalyticsForAllSides(FirebaseAuth.instance.currentUser?.uid)),
                         ),
                         const SizedBox(height: 20),
                         const Divider(),
@@ -237,19 +289,6 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
                             ),
                           ),
                         ],
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 16),
-                        OutlinedButton.icon(
-                          onPressed: () => context.go('/test-functions'),
-                          icon: const Icon(Icons.bug_report),
-                          label: const Text('Test Cloud Functions'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: figmaPurple,
-                            side: BorderSide(color: figmaPurple),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -259,6 +298,67 @@ class _DeveloperScreenState extends State<DeveloperScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SeedableRow extends StatelessWidget {
+  const _SeedableRow({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.color,
+    required this.loading,
+    required this.onSeed,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final Color color;
+  final bool loading;
+  final VoidCallback onSeed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              Text(
+                description,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton(
+          onPressed: loading ? null : onSeed,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: color,
+            side: BorderSide(color: color),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          child: const Text('Seed'),
+        ),
+      ],
     );
   }
 }

@@ -2,6 +2,12 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GEMINI_MODEL, getGeminiApiKey } from './gemini-config';
+import {
+  getRoleBasedDescriptivePrompt,
+  getRoleBasedPrescriptivePrompt,
+  getPlatformDescriptivePrompt,
+  getPlatformPrescriptivePrompt,
+} from './prompts/analytics-prompts';
 
 const db = admin.firestore();
 const gemini = new GoogleGenerativeAI(getGeminiApiKey());
@@ -127,27 +133,8 @@ async function gatherAdminMetrics(): Promise<any> {
 }
 
 async function generateRoleBasedInsight(role: Role, metrics: any): Promise<{ descriptive: string; prescriptive: string }> {
-  let promptDesc: string;
-  let promptPres: string;
-  if (role === 'volunteer') {
-    promptDesc = `As a volunteer on a volunteering platform, summarize what these contribution metrics say about this user in 2-4 short, encouraging sentences. Be personal and positive.
-Hours spent on volunteerism: ${metrics.hoursVolunteerism?.toFixed(1) ?? 0}
-RM spent on donations: ${metrics.rmDonations?.toFixed(2) ?? 0}
-Points collected: ${metrics.pointsCollected ?? 0}`;
-    promptPres = `Give 2-3 short, actionable suggestions for this volunteer (e.g. try a new opportunity, set a small donation goal, reach the next tier).`;
-  } else if (role === 'ngo') {
-    promptDesc = `As an organizer on a volunteering platform, summarize what these metrics say about their impact in 2-4 short sentences. Be encouraging and data-driven.
-Total volunteers: ${metrics.totalVolunteers ?? 0}
-Active campaigns: ${metrics.activeCampaigns ?? 0}
-Impact funds (RM): ${metrics.impactFunds?.toFixed(2) ?? 0}`;
-    promptPres = `Give 2-3 short, actionable recommendations for this organizer (e.g. recruit more volunteers, launch a campaign, hit a funding goal).`;
-  } else {
-    promptDesc = `As a platform admin, summarize what these platform metrics indicate in 2-4 short sentences. Focus on health and growth.
-Number of users: ${metrics.numberOfUsers ?? 0}
-Number of organisations: ${metrics.numberOfOrganisations ?? 0}
-Active events: ${metrics.activeEvents ?? 0}`;
-    promptPres = `Give 2-3 short admin recommendations (e.g. verify pending NGOs, highlight top events, address bottlenecks).`;
-  }
+  const promptDesc = getRoleBasedDescriptivePrompt(role, metrics);
+  const promptPres = getRoleBasedPrescriptivePrompt(role);
 
   try {
     const [descResult, presResult] = await Promise.all([
@@ -235,16 +222,7 @@ async function gatherMetrics(): Promise<any> {
 }
 
 async function generateDescriptiveInsights(metrics: any): Promise<string> {
-  const prompt = `Analyze these volunteer platform metrics and provide descriptive insights (what happened):
-
-Metrics:
-- Total Users: ${metrics.totalUsers}
-- Total Activities: ${metrics.totalActivities}
-- Total Donation Drives: ${metrics.totalDrives}
-- Total Volunteer Attendances: ${metrics.totalAttendances}
-- Total Donations Raised: RM ${metrics.totalDonations.toFixed(2)}
-
-Provide 3-4 insights explaining trends, patterns, and what these numbers mean. Be concise and data-driven. Format as bullet points.`;
+  const prompt = getPlatformDescriptivePrompt(metrics);
 
   try {
     const result = await model.generateContent(prompt);
@@ -256,22 +234,7 @@ Provide 3-4 insights explaining trends, patterns, and what these numbers mean. B
 }
 
 async function generatePrescriptiveInsights(metrics: any): Promise<string> {
-  const prompt = `Based on these metrics, provide prescriptive recommendations (what to do next):
-
-Metrics:
-- Total Users: ${metrics.totalUsers}
-- Total Activities: ${metrics.totalActivities}
-- Total Donation Drives: ${metrics.totalDrives}
-- Total Volunteer Attendances: ${metrics.totalAttendances}
-- Total Donations Raised: RM ${metrics.totalDonations.toFixed(2)}
-
-Provide 3-4 actionable recommendations for:
-1. Increasing volunteer engagement
-2. Optimizing donation drives
-3. Improving user retention
-4. Addressing gaps or opportunities
-
-Be specific and actionable. Format as bullet points.`;
+  const prompt = getPlatformPrescriptivePrompt(metrics);
 
   try {
     const result = await model.generateContent(prompt);

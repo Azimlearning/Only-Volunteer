@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GEMINI_MODEL, getGeminiApiKey } from './gemini-config';
+import { getChatbotPromptWithRAG, getChatbotPromptWithoutRAG } from './prompts/chatbot-prompts';
 
 const apiKey = getGeminiApiKey();
 const gemini = new GoogleGenerativeAI(apiKey);
@@ -92,43 +93,28 @@ function buildContext(docs: any[]): string {
 }
 
 async function generateResponse(query: string, context: string, userId: string): Promise<string> {
-  // Get user profile for personalization
   const userDoc = await admin.firestore().collection('users').doc(userId).get();
   const user = userDoc.data();
-
-  const prompt = `You are the OnlyVolunteer AI assistant. Help users find volunteer opportunities, donation drives, and aid resources.
-
-User Profile:
-- Name: ${user?.displayName || 'User'}
-- Skills: ${user?.skills?.join(', ') || 'None'}
-- Interests: ${user?.interests?.join(', ') || 'None'}
-
-Relevant Context from Database:
-${context}
-
-User Question: ${query}
-
-Provide a helpful, concise answer (2-4 sentences). If relevant opportunities exist, mention them. Be friendly and actionable.`;
+  const userProfile = {
+    displayName: user?.displayName,
+    skills: user?.skills,
+    interests: user?.interests,
+  };
+  const prompt = getChatbotPromptWithRAG(query, userProfile, context);
 
   const result = await geminiModel.generateContent(prompt);
   return result.response.text() || 'I apologize, but I could not generate a response. Please try again.';
 }
 
 async function chatWithoutRAG(message: string, userId: string): Promise<any> {
-  // Fallback: simple Gemini chat without RAG
   const userDoc = await admin.firestore().collection('users').doc(userId).get();
   const user = userDoc.data();
-
-  const prompt = `You are the OnlyVolunteer AI assistant. Help users find volunteer opportunities, donation drives, and aid resources.
-
-User Profile:
-- Name: ${user?.displayName || 'User'}
-- Skills: ${user?.skills?.join(', ') || 'None'}
-- Interests: ${user?.interests?.join(', ') || 'None'}
-
-User Question: ${message}
-
-Provide a helpful, concise answer (2-4 sentences). Be friendly and actionable.`;
+  const userProfile = {
+    displayName: user?.displayName,
+    skills: user?.skills,
+    interests: user?.interests,
+  };
+  const prompt = getChatbotPromptWithoutRAG(message, userProfile);
 
   const result = await geminiModel.generateContent(prompt);
   return {

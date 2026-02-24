@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:go_router/go_router.dart';
 import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/analytics_data_service.dart';
@@ -18,12 +17,50 @@ class AnalyticsScreen extends StatefulWidget {
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   final AnalyticsDataService _analyticsData = AnalyticsDataService();
+  final FirestoreService _firestore = FirestoreService();
   String? _insightText;
   bool _loadingInsights = false;
   bool _bypassCache = false;
+  /// When current user is admin, which view to show (Admin / User / Org).
+  UserRole _viewAsRole = UserRole.admin;
 
   void _retry() {
     setState(() => _bypassCache = true);
+  }
+
+  Widget _buildViewAsDropdown(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      child: Row(
+        children: [
+          Text('View as:', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+          const SizedBox(width: 12),
+          DropdownButton<UserRole>(
+            value: _viewAsRole,
+            items: const [
+              DropdownMenuItem(value: UserRole.admin, child: Text('Admin')),
+              DropdownMenuItem(value: UserRole.volunteer, child: Text('User')),
+              DropdownMenuItem(value: UserRole.ngo, child: Text('Org')),
+            ],
+            onChanged: (UserRole? v) {
+              if (v != null) setState(() { _viewAsRole = v; _bypassCache = true; });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<AnalyticsPayload> _getPayloadFuture(String uid, UserRole role) async {
+    UserRole effectiveRole = role;
+    String effectiveUid = uid;
+    if (role == UserRole.admin) {
+      effectiveRole = _viewAsRole;
+      if (_viewAsRole == UserRole.ngo) {
+        effectiveUid = await _firestore.getFirstNgoUserId() ?? uid;
+      }
+    }
+    return _analyticsData.getData(effectiveUid, effectiveRole, bypassCache: _bypassCache);
   }
 
   @override
@@ -37,7 +74,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
 
     return FutureBuilder<AnalyticsPayload>(
-      future: _analyticsData.getData(uid, role, bypassCache: _bypassCache),
+      future: _getPayloadFuture(uid, role),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -85,29 +122,43 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           );
         }
 
-        switch (role) {
+        final effectiveRole = role == UserRole.admin ? _viewAsRole : role;
+        final belowHeader = role == UserRole.admin ? _buildViewAsDropdown(context) : null;
+        Widget content;
+        switch (effectiveRole) {
           case UserRole.volunteer:
-            return _UserAnalyticsView(
+            content = _UserAnalyticsView(
               data: payload.userData ?? UserAnalyticsData.empty,
               insightText: _insightText,
               loadingInsights: _loadingInsights,
               onGenerateInsights: _loadAIInsights,
+              belowHeader: belowHeader,
             );
+            break;
           case UserRole.ngo:
-            return _OrganizerAnalyticsView(
+            content = _OrganizerAnalyticsView(
               data: payload.organizerData ?? OrganizerAnalyticsData.empty,
               insightText: _insightText,
               loadingInsights: _loadingInsights,
               onGenerateInsights: _loadAIInsights,
+              belowHeader: belowHeader,
             );
+            break;
           case UserRole.admin:
-            return _AdminAnalyticsView(
+            content = _AdminAnalyticsView(
               data: payload.adminData ?? AdminAnalyticsData.empty,
               insightText: _insightText,
               loadingInsights: _loadingInsights,
               onGenerateInsights: _loadAIInsights,
+              belowHeader: belowHeader,
             );
+            break;
         }
+        if (role != UserRole.admin) return content;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [Expanded(child: content)],
+        );
       },
     );
   }
@@ -187,36 +238,6 @@ Widget _buildHeader(BuildContext context, {VoidCallback? onGenerateInsights, boo
   );
 }
 
-Widget _buildProgressBar(BuildContext context, {required String leftLabel, required String rightLabel, required double fraction, required String message}) {
-  return Padding(
-    padding: const EdgeInsets.fromLTRB(kPagePadding, 0, kPagePadding, 16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(leftLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: figmaPurple)),
-            Text(rightLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.amber[700])),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: LinearProgressIndicator(
-            value: fraction.clamp(0.0, 1.0),
-            minHeight: 10,
-            backgroundColor: Colors.grey[200],
-            valueColor: const AlwaysStoppedAnimation<Color>(figmaPurple),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(message, style: TextStyle(fontSize: 13, color: Colors.grey[700])),
-      ],
-    ),
-  );
-}
-
 Widget _metricCard(BuildContext context, {required String value, required String label, required IconData icon, bool highlight = false, Color? valueColor}) {
   final effectiveValueColor = valueColor ?? (highlight ? Colors.white : figmaBlack);
   return Card(
@@ -284,45 +305,20 @@ Widget _buildAIInsightSection(BuildContext context, {required String title, Stri
   );
 }
 
-Widget _buildSuggestionSection(BuildContext context, {required String title, required Widget child}) {
-  return Container(
-    width: double.infinity,
-    margin: const EdgeInsets.fromLTRB(kPagePadding, 0, kPagePadding, 24),
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(kCardRadius),
-      border: Border.all(color: Colors.grey.shade200),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.lightbulb_outline, size: 20, color: figmaOrange),
-            const SizedBox(width: 8),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        child,
-      ],
-    ),
-  );
-}
-
 class _UserAnalyticsView extends StatelessWidget {
   const _UserAnalyticsView({
     required this.data,
     this.insightText,
     required this.loadingInsights,
     required this.onGenerateInsights,
+    this.belowHeader,
   });
 
   final UserAnalyticsData data;
   final String? insightText;
   final bool loadingInsights;
   final VoidCallback? onGenerateInsights;
+  final Widget? belowHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -331,6 +327,7 @@ class _UserAnalyticsView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(context, onGenerateInsights: onGenerateInsights, loadingInsights: loadingInsights),
+          if (belowHeader != null) belowHeader!,
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: kPagePadding),
             child: Row(
@@ -361,66 +358,8 @@ class _UserAnalyticsView extends StatelessWidget {
             title: 'What these contribution says about you?',
             body: insightText,
           ),
-          _buildSuggestionSection(
-            context,
-            title: 'Suggestion',
-            child: _UserSuggestionContent(),
-          ),
         ],
       ),
-    );
-  }
-}
-
-class _UserSuggestionContent extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: FirestoreService().getVolunteerListings(showPrivate: false),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Row(
-            children: [
-              Expanded(child: Text('Find an opportunity that fits you.', style: TextStyle(color: Colors.grey[700]))),
-              IconButton(
-                onPressed: () => context.go('/opportunities'),
-                icon: const Icon(Icons.arrow_forward_rounded),
-                color: figmaOrange,
-              ),
-            ],
-          );
-        }
-        final listing = snapshot.data!.first;
-        return InkWell(
-          onTap: () => context.go('/opportunities'),
-          borderRadius: BorderRadius.circular(8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(listing.title, style: const TextStyle(fontWeight: FontWeight.w600, color: figmaBlack)),
-                    if (listing.description != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        listing.description!.length > 80 ? '${listing.description!.substring(0, 80)}...' : listing.description!,
-                        style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-                      ),
-                    ],
-                    if (listing.organizationName != null || listing.location != null)
-                      Text(
-                        '${listing.organizationName ?? ''}${listing.organizationName != null && listing.location != null ? ' | ' : ''}${listing.location ?? ''}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                  ],
-                ),
-              ),
-              Icon(Icons.arrow_forward_rounded, color: figmaOrange),
-            ],
-          ),
-        );
-      },
     );
   }
 }
@@ -431,31 +370,23 @@ class _OrganizerAnalyticsView extends StatelessWidget {
     this.insightText,
     required this.loadingInsights,
     required this.onGenerateInsights,
+    this.belowHeader,
   });
 
   final OrganizerAnalyticsData data;
   final String? insightText;
   final bool loadingInsights;
   final VoidCallback? onGenerateInsights;
+  final Widget? belowHeader;
 
   @override
   Widget build(BuildContext context) {
-    const impactPartnerThreshold = 1000;
-    final fraction = (data.impactFunds / impactPartnerThreshold).clamp(0.0, 1.0);
-    final toGo = (impactPartnerThreshold - data.impactFunds).clamp(0.0, impactPartnerThreshold);
-
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(context, onGenerateInsights: onGenerateInsights, loadingInsights: loadingInsights),
-          _buildProgressBar(
-            context,
-            leftLabel: 'GRASSROOTS',
-            rightLabel: 'IMPACT PARTNER',
-            fraction: fraction,
-            message: toGo > 0 ? 'Keep growing your impact.' : 'Impact Partner level.',
-          ),
+          if (belowHeader != null) belowHeader!,
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: kPagePadding),
             child: Row(
@@ -496,14 +427,6 @@ class _OrganizerAnalyticsView extends StatelessWidget {
             title: 'What these metrics say about your impact?',
             body: insightText,
           ),
-          _buildSuggestionSection(
-            context,
-            title: 'Suggestion',
-            child: Text(
-              'Targeted Invite: Skill-Based Outreach. Invite volunteers with matching skills to your campaigns.',
-              style: TextStyle(color: Colors.grey[700], fontSize: 14),
-            ),
-          ),
         ],
       ),
     );
@@ -516,12 +439,14 @@ class _AdminAnalyticsView extends StatelessWidget {
     this.insightText,
     required this.loadingInsights,
     required this.onGenerateInsights,
+    this.belowHeader,
   });
 
   final AdminAnalyticsData data;
   final String? insightText;
   final bool loadingInsights;
   final VoidCallback? onGenerateInsights;
+  final Widget? belowHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -532,6 +457,7 @@ class _AdminAnalyticsView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(context, onGenerateInsights: onGenerateInsights, loadingInsights: loadingInsights),
+          if (belowHeader != null) belowHeader!,
           Padding(
             padding: const EdgeInsets.fromLTRB(kPagePadding, 16, kPagePadding, 8),
             child: Row(

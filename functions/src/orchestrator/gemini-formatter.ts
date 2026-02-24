@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Content } from '@google/generative-ai';
 import { GEMINI_MODEL, getGeminiApiKey, isGeminiConfigured } from '../gemini-config';
+import { getChatbotFollowUpSuggestionsPrompt } from '../prompts/chatbot-prompts';
 import { contextToPromptBlock } from './context-builder';
 import type { UserContext } from './context-builder';
 import type { ToolName } from './router';
@@ -161,12 +162,7 @@ export async function chatWithContext(
 export async function generateSuggestions(userMessage: string, responseText: string): Promise<string[]> {
   const { model } = getGeminiModel();
   if (!model) return [];
-  const prompt = `Based on this chat exchange, suggest 2 or 3 short follow-up questions or actions the user might want to ask next (each on a new line, no numbering or bullets). Keep each under 8 words. OnlyVolunteer context: alerts, donation drives, matching, nearby aid, volunteering.
-
-User: ${userMessage.slice(0, 200)}
-Assistant: ${responseText.slice(0, 300)}
-
-Suggestions (one per line):`;
+  const prompt = getChatbotFollowUpSuggestionsPrompt(userMessage, responseText);
   try {
     const result = await model.generateContent(prompt);
     const raw = result.response.text()?.trim() ?? '';

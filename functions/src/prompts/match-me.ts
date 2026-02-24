@@ -88,3 +88,27 @@ export function buildMiniMatchMeExtractionPrompt(
 }
 
 export const SEMANTIC_VIBE_INSTRUCTION = `Match the user's stated interests and skills to opportunity titles and descriptions even when wording differs (e.g. "building websites in React" matches "Front-end Developer", "love dogs" matches "Animals" cause).`;
+
+/** Skill-matching: explain why an opportunity matches the user (used by skill-matching.ts). */
+export function buildSkillMatchExplanationPrompt(
+  user: { skills?: string[]; interests?: string[]; location?: string },
+  activity: { title: string; description?: string; skillsRequired?: string[]; location?: string; slotsTotal?: number; slotsFilled?: number },
+  score: number
+): string {
+  const slotsLeft = (activity.slotsTotal ?? 0) - (activity.slotsFilled ?? 0);
+  return `Explain why this volunteer opportunity matches this user (score: ${score}/100).
+
+User:
+- Skills: ${user.skills?.join(', ') || 'None'}
+- Interests: ${user.interests?.join(', ') || 'None'}
+- Location: ${user.location || 'N/A'}
+
+Activity:
+- Title: ${activity.title}
+- Description: ${activity.description || 'N/A'}
+- Required Skills: ${activity.skillsRequired?.join(', ') || 'None'}
+- Location: ${activity.location || 'N/A'}
+- Slots Available: ${slotsLeft}
+
+Provide a brief, friendly explanation (1-2 sentences) of why this is a good match.`;
+}

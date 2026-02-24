@@ -46,6 +46,16 @@ class FirestoreService {
     await _db.collection(_users).doc(uid).update({'points': FieldValue.increment(delta)});
   }
 
+  /// Returns the first user document id with role 'ngo' or 'org'; null if none.
+  Future<String?> getFirstNgoUserId() async {
+    final snap = await _db.collection(_users).get();
+    for (final doc in snap.docs) {
+      final role = doc.data()['role']?.toString();
+      if (role == 'ngo' || role == 'org') return doc.id;
+    }
+    return null;
+  }
+
   /// Partial update of user document (e.g. location only). Merges into existing doc.
   Future<void> updateUserFields(String uid, Map<String, dynamic> fields) async {
     if (fields.isEmpty) return;
@@ -426,5 +436,13 @@ class FirestoreService {
       'status': 'cancelled',
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> updateMicroDonationRequest(MicroDonationRequest request) async {
+    await _db.collection(_microDonations).doc(request.id).set(request.toMap(), SetOptions(merge: true));
+  }
+
+  Future<void> deleteMicroDonationRequest(String requestId) async {
+    await _db.collection(_microDonations).doc(requestId).delete();
   }
 }
