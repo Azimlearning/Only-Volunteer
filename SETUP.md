@@ -86,9 +86,21 @@ Flutter has been cloned to `C:\flutter` for you. Add it to your PATH so it works
 3. **Run the app with the key** (no need to put it in the repo):
 
    ```powershell
-   flutter run -d chrome --dart-define=GEMINI_API_KEY=YOUR_KEY_HERE
+   flutter run -d chrome --dart-define=GEMINI_API_KEY=AIzaSyChcMzoRiGYKfELhh9TvRsBdFexQFCn2Qs
    ```
-   Or use the helper script: `.\run_test.ps1 -GeminiKey "YOUR_KEY_HERE"`
+   Or use the helper script: `.\run_test.ps1 -GeminiKey "AIzaSyChcMzoRiGYKfELhh9TvRsBdFexQFCn2Qs"`
+
+---
+
+## Step 3.5: News API & GNews API Keys (For Backend Only)
+
+If you are planning to test or deploy the Firebase Cloud Functions (especially those handling alerts such as `monitorNewsForAlerts` and `triggerNewsAlerts`), you will need the News or GNews API keys.
+*These do not need to be passed into the Flutter app.*
+
+- **News API Key:** `195db3eca2e94b3a8efb743882980243`
+- **GNews API Key:** `4e5b5b271081946bb976c7e50c719d24`
+
+*(Refer to `DEPLOYMENT_GUIDE.md` on how to export these to Firebase Functions).*
 
 ---
 

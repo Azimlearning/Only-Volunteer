@@ -10,6 +10,14 @@ Comprehensive Volunteer &amp; Aid Management Platform with AI-powered features -
 - **Maps**: Google Maps
 - **Analytics**: Firestore → BigQuery / Looker (optional)
 
+## Core AI Features ✨
+Our platform heavily utilizes AI to provide the best experience. These are our 5 main AI-powered features:
+1. **Aid Finder using AI**: Intelligently helps users locate and request necessary resources and aid.
+2. **AI Matching System**: Evaluates volunteer profiles against opportunities to provide the best matches with detailed explanations.
+3. **AI Analytics**: Generates descriptive and prescriptive insights from volunteer and donation data.
+4. **AI News Alerts**: Monitors emergencies via news APIs and triggers alerts for immediate volunteer responses.
+5. **AI Chatbot with Tool Calling**: A conversational AI focused on the platform that can intelligently route and call the other 4 AI features to assist users seamlessly.
+
 ## Setup
 
 1. Install [Flutter](https://flutter.dev/docs/get-started/install) and ensure it's on your PATH.
@@ -30,13 +38,17 @@ Comprehensive Volunteer &amp; Aid Management Platform with AI-powered features -
    flutter run -d chrome
    ```
 
-## Project Structure
+## Project Structure & Documentation
 
 - `lib/main.dart` - Entry point
 - `lib/app/` - App shell, routing, theme
 - `lib/features/` - Feature modules (aid, volunteer, social, gamification, analytics, ai)
 - `lib/core/` - Shared models, services, config
 - `lib/models/` - Firestore/data models
+
+**Detailed Documentation:**
+- [Project Documentation](docs/project_documentation.md) - Deep dive into architecture, specific AI features, modules, and components.
+- [Tech Stack](docs/techstack.md) - Information regarding frameworks, libraries, and external integrations.
 
 ## Analytics (BigQuery / Looker)
 
