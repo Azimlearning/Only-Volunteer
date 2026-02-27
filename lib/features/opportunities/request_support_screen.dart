@@ -29,6 +29,23 @@ class _RequestSupportScreenState extends State<RequestSupportScreen> {
   bool _infoCorrect = false;
   bool _acceptsMonetaryDonation = false;
   final _monetaryGoalController = TextEditingController();
+  final _contactEmailController = TextEditingController();
+  final _contactPhoneController = TextEditingController();
+  final _qrCodeUrlController = TextEditingController();
+  final _accountNameController = TextEditingController();
+  final _accountNumberController = TextEditingController();
+  String? _bank;
+
+  static const _bankOptions = [
+    {'value': 'maybank', 'label': 'Maybank'},
+    {'value': 'cimb', 'label': 'CIMB Bank'},
+    {'value': 'public', 'label': 'Public Bank'},
+    {'value': 'hongleong', 'label': 'Hong Leong Bank'},
+    {'value': 'rhb', 'label': 'RHB Bank'},
+    {'value': 'ambank', 'label': 'AmBank'},
+    {'value': 'uob', 'label': 'UOB'},
+    {'value': 'ocbc', 'label': 'OCBC'},
+  ];
 
   static const _categories = [
     'Food',
@@ -51,6 +68,11 @@ class _RequestSupportScreenState extends State<RequestSupportScreen> {
     _latController.dispose();
     _lngController.dispose();
     _monetaryGoalController.dispose();
+    _contactEmailController.dispose();
+    _contactPhoneController.dispose();
+    _qrCodeUrlController.dispose();
+    _accountNameController.dispose();
+    _accountNumberController.dispose();
     super.dispose();
   }
 
@@ -97,7 +119,13 @@ class _RequestSupportScreenState extends State<RequestSupportScreen> {
       final monetaryGoal = _acceptsMonetaryDonation && _monetaryGoalController.text.trim().isNotEmpty
           ? double.tryParse(_monetaryGoalController.text.trim())
           : null;
-      
+      final contactEmail = _contactEmailController.text.trim().isEmpty ? null : _contactEmailController.text.trim();
+      final contactPhone = _contactPhoneController.text.trim().isEmpty ? null : _contactPhoneController.text.trim();
+      final qrCodeUrl = _acceptsMonetaryDonation ? (_qrCodeUrlController.text.trim().isEmpty ? null : _qrCodeUrlController.text.trim()) : null;
+      final bank = _acceptsMonetaryDonation ? _bank : null;
+      final accountName = _acceptsMonetaryDonation ? (_accountNameController.text.trim().isEmpty ? null : _accountNameController.text.trim()) : null;
+      final accountNumber = _acceptsMonetaryDonation ? (_accountNumberController.text.trim().isEmpty ? null : _accountNumberController.text.trim()) : null;
+
       final listing = VolunteerListing(
         id: ref.id,
         title: title,
@@ -117,6 +145,12 @@ class _RequestSupportScreenState extends State<RequestSupportScreen> {
         acceptsMonetaryDonation: _acceptsMonetaryDonation,
         monetaryGoal: monetaryGoal,
         monetaryRaised: 0,
+        contactEmail: contactEmail,
+        contactPhone: contactPhone,
+        qrCodeUrl: qrCodeUrl,
+        bank: bank,
+        accountName: accountName,
+        accountNumber: accountNumber,
       );
       
       await _firestore.addVolunteerListing(listing);
@@ -231,6 +265,29 @@ class _RequestSupportScreenState extends State<RequestSupportScreen> {
                           style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                         ),
                         const SizedBox(height: 16),
+                        const Text(
+                          'Contact',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _contactEmailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Contact email (optional)',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _contactPhoneController,
+                          decoration: const InputDecoration(
+                            labelText: 'Contact phone (optional)',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
                           value: _urgency,
                           decoration: const InputDecoration(
@@ -256,6 +313,49 @@ class _RequestSupportScreenState extends State<RequestSupportScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Monetary Goal (RM)',
                               hintText: 'e.g.; 500',
+                              border: OutlineInputBorder(),
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Payment details',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _qrCodeUrlController,
+                            decoration: const InputDecoration(
+                              labelText: 'QR Code URL (optional)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: _bank,
+                            decoration: const InputDecoration(
+                              labelText: 'Bank',
+                              hintText: 'Select Bank',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: _bankOptions
+                                .map((b) => DropdownMenuItem(value: b['value'], child: Text(b['label']!)))
+                                .toList(),
+                            onChanged: (v) => setState(() => _bank = v),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _accountNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Account name',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _accountNumberController,
+                            decoration: const InputDecoration(
+                              labelText: 'Account number',
                               border: OutlineInputBorder(),
                             ),
                             keyboardType: TextInputType.number,

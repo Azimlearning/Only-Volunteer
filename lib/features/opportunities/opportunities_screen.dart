@@ -28,6 +28,7 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
   List<MicroDonationRequest> _microDonations = [];
   bool _loading = true;
   _FilterMode _filter = _FilterMode.all;
+  MicroDonationCategory? _donationCategoryFilter;
   int _currentPage = 0;
   static const int _itemsPerPage = 8; // 4 per row x 2 rows
 
@@ -97,31 +98,6 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Image display
-              if (listing.imageUrl != null && listing.imageUrl!.isNotEmpty) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: listing.imageUrl!,
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      height: 200,
-                      color: Colors.grey[200],
-                      child: Center(
-                        child: CircularProgressIndicator(color: figmaOrange),
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) => Container(
-                      height: 200,
-                      color: Colors.grey[200],
-                      child: Icon(Icons.volunteer_activism, size: 48, color: Colors.grey[400]),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
               // Title
               Text(
                 listing.title,
@@ -355,17 +331,10 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _applyListing(listing);
-                },
-                icon: const Icon(Icons.check_circle),
-                label: const Text('Apply'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: figmaOrange,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
+              _ApplyButtonWithState(
+                listing: listing,
+                onApply: _applyListing,
+                onDone: () => Navigator.pop(context),
               ),
             ],
           ),
@@ -505,6 +474,25 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
                   selected: _filter == _FilterMode.donations,
                   onTap: () => setState(() => _filter = _FilterMode.donations),
                 ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: DropdownButtonFormField<MicroDonationCategory?>(
+                    value: _donationCategoryFilter,
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: [
+                      const DropdownMenuItem<MicroDonationCategory?>(value: null, child: Text('All')),
+                      ...MicroDonationCategory.values.map((c) => DropdownMenuItem<MicroDonationCategory?>(
+                            value: c,
+                            child: Text(_donationCategoryLabel(c)),
+                          )),
+                    ],
+                    onChanged: (v) => setState(() => _donationCategoryFilter = v),
+                  ),
+                ),
               ],
             ),
           ),
@@ -549,15 +537,19 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
       return const Center(child: Text('No donation requests yet.'));
     }
 
+    final filteredDonations = _donationCategoryFilter == null
+        ? _microDonations
+        : _microDonations.where((r) => r.category == _donationCategoryFilter).toList();
+
     // Determine which items to show based on filter
     List<dynamic> itemsToShow;
     if (_filter == _FilterMode.volunteering) {
       itemsToShow = _listings;
     } else if (_filter == _FilterMode.donations) {
-      itemsToShow = _microDonations;
+      itemsToShow = filteredDonations;
     } else {
       // All mode - show volunteering first, then donations
-      itemsToShow = [..._listings, ..._microDonations];
+      itemsToShow = [..._listings, ...filteredDonations];
     }
 
     final totalPages = _getTotalPages(itemsToShow.length);
@@ -574,32 +566,41 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
     final end = start + _itemsPerPage;
     final paginatedItems = itemsToShow.sublist(start.clamp(0, itemsToShow.length), end.clamp(0, itemsToShow.length));
 
+    final rowCount = (paginatedItems.length / 2).ceil();
     return Column(
       children: [
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(20),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 20,
-              mainAxisSpacing: 20,
-              childAspectRatio: 0.7,
-            ),
-            itemCount: paginatedItems.length,
-            itemBuilder: (context, index) {
-              final item = paginatedItems[index];
-              if (item is VolunteerListing) {
-                return _VolunteerCard(
-                  listing: item,
-                  onTap: () => _showOpportunityDetail(item),
-                );
-              } else if (item is MicroDonationRequest) {
-                return _MicroDonationCard(
-                  request: item,
-                  onTap: () => _showMicroDonationDetail(item),
-                );
-              }
-              return const SizedBox.shrink();
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: rowCount,
+            itemBuilder: (context, rowIndex) {
+              final leftIndex = rowIndex * 2;
+              final rightIndex = leftIndex + 1;
+              final leftItem = paginatedItems[leftIndex];
+              final rightItem = rightIndex < paginatedItems.length ? paginatedItems[rightIndex] : null;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildOpportunityCard(leftItem, () {
+                        if (leftItem is VolunteerListing) _showOpportunityDetail(leftItem);
+                        else if (leftItem is MicroDonationRequest) _showMicroDonationDetail(leftItem);
+                      }),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: rightItem != null
+                          ? _buildOpportunityCard(rightItem, () {
+                              if (rightItem is VolunteerListing) _showOpportunityDetail(rightItem);
+                              else if (rightItem is MicroDonationRequest) _showMicroDonationDetail(rightItem);
+                            })
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              );
             },
           ),
         ),
@@ -646,6 +647,33 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
           ),
       ],
     );
+  }
+
+  String _donationCategoryLabel(MicroDonationCategory c) {
+    switch (c) {
+      case MicroDonationCategory.specific_food:
+        return 'Specific Food';
+      case MicroDonationCategory.furniture:
+        return 'Furniture';
+      case MicroDonationCategory.appliances:
+        return 'Appliances';
+      case MicroDonationCategory.medical:
+        return 'Medical';
+      case MicroDonationCategory.education:
+        return 'Education';
+      case MicroDonationCategory.other:
+        return 'Other';
+    }
+  }
+
+  Widget _buildOpportunityCard(dynamic item, VoidCallback onTap) {
+    if (item is VolunteerListing) {
+      return _VolunteerCard(listing: item, onTap: onTap);
+    }
+    if (item is MicroDonationRequest) {
+      return _MicroDonationCard(request: item, onTap: onTap);
+    }
+    return const SizedBox.shrink();
   }
 
   Widget _sectionTitle(String title) {
@@ -1045,6 +1073,52 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
   }
 }
 
+class _ApplyButtonWithState extends StatefulWidget {
+  const _ApplyButtonWithState({
+    required this.listing,
+    required this.onApply,
+    required this.onDone,
+  });
+  final VolunteerListing listing;
+  final Future<void> Function(VolunteerListing) onApply;
+  final VoidCallback onDone;
+
+  @override
+  State<_ApplyButtonWithState> createState() => _ApplyButtonWithStateState();
+}
+
+class _ApplyButtonWithStateState extends State<_ApplyButtonWithState> {
+  bool _applying = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: _applying
+          ? null
+          : () async {
+              setState(() => _applying = true);
+              await widget.onApply(widget.listing);
+              if (mounted) {
+                setState(() => _applying = false);
+                widget.onDone();
+              }
+            },
+      icon: _applying
+          ? SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            )
+          : const Icon(Icons.check_circle),
+      label: Text(_applying ? 'Applying...' : 'Apply'),
+      style: FilledButton.styleFrom(
+        backgroundColor: figmaOrange,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+      ),
+    );
+  }
+}
+
 class _FilterChip extends StatelessWidget {
   const _FilterChip({required this.label, required this.selected, required this.onTap});
 
@@ -1064,6 +1138,33 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({required this.icon, required this.label, this.iconSize = 14});
+
+  final IconData icon;
+  final String label;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: iconSize, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _VolunteerCard extends StatelessWidget {
   const _VolunteerCard({required this.listing, required this.onTap});
 
@@ -1073,123 +1174,75 @@ class _VolunteerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final slotsLeft = listing.slotsTotal - listing.slotsFilled;
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
+      ),
       clipBehavior: Clip.antiAlias,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image
-          Expanded(
-            flex: 4,
-            child: listing.imageUrl != null && listing.imageUrl!.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: listing.imageUrl!,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey[200],
-                      child: Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: figmaOrange,
-                          ),
-                        ),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: Colors.grey[200],
-                      child: Icon(Icons.volunteer_activism, size: 30, color: Colors.grey[400]),
-                    ),
-                  )
-                : Container(
-                    color: Colors.grey[200],
-                    child: Icon(Icons.volunteer_activism, size: 30, color: Colors.grey[400]),
-                  ),
-          ),
+          Container(height: 4, width: double.infinity, color: figmaOrange),
           Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        listing.title,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: figmaBlack),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (listing.acceptsMonetaryDonation == true)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: figmaPurple.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'RM',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: figmaPurple),
-                        ),
-                      ),
-                  ],
+                Text(
+                  listing.title,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                if (listing.acceptsMonetaryDonation == true && listing.monetaryGoal != null) ...[
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        'Goal: RM${listing.monetaryGoal!.toStringAsFixed(0)}',
-                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                const SizedBox(height: 12),
+                if (listing.location != null)
+                  _MetaRow(icon: Icons.location_on, label: listing.location!, iconSize: 14),
+                if (listing.location != null && (listing.organizationName != null || listing.skillsRequired.isNotEmpty)) const SizedBox(height: 8),
+                if (listing.organizationName != null)
+                  _MetaRow(icon: Icons.business, label: listing.organizationName!, iconSize: 14),
+                if (listing.organizationName != null) const SizedBox(height: 8),
+                _MetaRow(icon: Icons.people, label: '${slotsLeft > 0 ? slotsLeft : 0} slots left', iconSize: 14),
+                const SizedBox(height: 12),
+                if (listing.skillsRequired.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: listing.skillsRequired.take(3).map((s) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: figmaOrange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(100),
                       ),
-                      if (listing.monetaryRaised != null && listing.monetaryRaised! > 0) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          'Raised: RM${listing.monetaryRaised!.toStringAsFixed(0)}',
-                          style: TextStyle(fontSize: 11, color: figmaOrange, fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ],
+                      child: Text(s, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: figmaOrange)),
+                    )).toList(),
                   ),
-                ],
-                if (listing.description != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    listing.description!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                if (listing.skillsRequired.isEmpty && listing.acceptsMonetaryDonation == true)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: figmaPurple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: Text('Accepts RM', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: figmaPurple)),
                   ),
-                ],
-                if (listing.location != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    listing.location!,
-                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
+                const Divider(height: 1, thickness: 1),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
+                  height: 44,
                   child: FilledButton(
                     onPressed: slotsLeft > 0 ? onTap : null,
                     style: FilledButton.styleFrom(
                       backgroundColor: figmaOrange,
-                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text(
-                      slotsLeft > 0 ? 'View Details' : 'Full',
-                      style: const TextStyle(fontSize: 12),
-                    ),
+                    child: Text(slotsLeft > 0 ? 'View Details' : 'Full', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   ),
                 ),
               ],
@@ -1199,7 +1252,6 @@ class _VolunteerCard extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _BankDetailRow extends StatelessWidget {
@@ -1250,78 +1302,59 @@ class _MicroDonationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
+      ),
       clipBehavior: Clip.antiAlias,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image placeholder
-          Expanded(
-            flex: 4,
-            child: Container(
-              color: figmaPurple.withOpacity(0.1),
-              child: Icon(Icons.card_giftcard, size: 40, color: figmaPurple),
-            ),
-          ),
+          Container(height: 4, width: double.infinity, color: figmaPurple),
           Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        request.title,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: figmaBlack),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                Text(
+                  request.title,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
-                Chip(
-                  label: Text(request.categoryName, style: const TextStyle(fontSize: 10)),
-                  backgroundColor: figmaPurple.withOpacity(0.1),
-                  padding: EdgeInsets.zero,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
+                const SizedBox(height: 12),
+                if (request.itemNeeded != null)
+                  _MetaRow(icon: Icons.shopping_bag, label: request.itemNeeded!, iconSize: 14),
+                if (request.itemNeeded != null && request.location != null) const SizedBox(height: 8),
+                if (request.location != null)
+                  _MetaRow(icon: Icons.location_on, label: request.location!, iconSize: 14),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: figmaPurple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(request.categoryName, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: figmaPurple)),
                 ),
-                if (request.itemNeeded != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Needs: ${request.itemNeeded}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[700]),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                if (request.location != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    request.location!,
-                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
+                const Divider(height: 1, thickness: 1),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
+                  height: 44,
                   child: FilledButton(
                     onPressed: onTap,
                     style: FilledButton.styleFrom(
                       backgroundColor: figmaPurple,
-                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text(
-                      'View Details',
-                      style: TextStyle(fontSize: 12),
-                    ),
+                    child: const Text('View Details', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   ),
                 ),
               ],
@@ -1347,8 +1380,26 @@ class _AddMicroDonationSheetState extends State<_AddMicroDonationSheet> {
   final _descController = TextEditingController();
   final _itemController = TextEditingController();
   final _locationController = TextEditingController();
+  final _contactEmailController = TextEditingController();
+  final _contactPhoneController = TextEditingController();
+  final _qrCodeUrlController = TextEditingController();
+  final _accountNameController = TextEditingController();
+  final _accountNumberController = TextEditingController();
   MicroDonationCategory _category = MicroDonationCategory.other;
   bool _saving = false;
+  bool _acceptMonetary = false;
+  String? _bank;
+
+  static const List<Map<String, String>> _bankOptions = [
+    {'value': 'maybank', 'label': 'Maybank'},
+    {'value': 'cimb', 'label': 'CIMB Bank'},
+    {'value': 'public', 'label': 'Public Bank'},
+    {'value': 'hongleong', 'label': 'Hong Leong Bank'},
+    {'value': 'rhb', 'label': 'RHB Bank'},
+    {'value': 'ambank', 'label': 'AmBank'},
+    {'value': 'uob', 'label': 'UOB'},
+    {'value': 'ocbc', 'label': 'OCBC'},
+  ];
 
   @override
   void dispose() {
@@ -1356,6 +1407,11 @@ class _AddMicroDonationSheetState extends State<_AddMicroDonationSheet> {
     _descController.dispose();
     _itemController.dispose();
     _locationController.dispose();
+    _contactEmailController.dispose();
+    _contactPhoneController.dispose();
+    _qrCodeUrlController.dispose();
+    _accountNameController.dispose();
+    _accountNumberController.dispose();
     super.dispose();
   }
 
@@ -1373,6 +1429,12 @@ class _AddMicroDonationSheetState extends State<_AddMicroDonationSheet> {
     setState(() => _saving = true);
     try {
       final ref = FirebaseFirestore.instance.collection('micro_donations').doc();
+      final contactEmail = _contactEmailController.text.trim().isEmpty ? null : _contactEmailController.text.trim();
+      final contactPhone = _contactPhoneController.text.trim().isEmpty ? null : _contactPhoneController.text.trim();
+      final qrCodeUrl = _acceptMonetary ? (_qrCodeUrlController.text.trim().isEmpty ? null : _qrCodeUrlController.text.trim()) : null;
+      final bank = _acceptMonetary ? _bank : null;
+      final accountName = _acceptMonetary ? (_accountNameController.text.trim().isEmpty ? null : _accountNameController.text.trim()) : null;
+      final accountNumber = _acceptMonetary ? (_accountNumberController.text.trim().isEmpty ? null : _accountNumberController.text.trim()) : null;
       final request = MicroDonationRequest(
         id: ref.id,
         title: title,
@@ -1382,6 +1444,12 @@ class _AddMicroDonationSheetState extends State<_AddMicroDonationSheet> {
         requesterName: FirebaseAuth.instance.currentUser?.displayName ?? FirebaseAuth.instance.currentUser?.email,
         itemNeeded: _itemController.text.trim().isEmpty ? null : _itemController.text.trim(),
         location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+        contactEmail: contactEmail,
+        contactPhone: contactPhone,
+        qrCodeUrl: qrCodeUrl,
+        bank: bank,
+        accountName: accountName,
+        accountNumber: accountNumber,
         status: MicroDonationStatus.open,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
@@ -1439,6 +1507,57 @@ class _AddMicroDonationSheetState extends State<_AddMicroDonationSheet> {
               controller: _locationController,
               decoration: const InputDecoration(labelText: 'Location', border: OutlineInputBorder()),
             ),
+            const SizedBox(height: 16),
+            const Text('Contact', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _contactEmailController,
+              decoration: const InputDecoration(labelText: 'Contact email (optional)', border: OutlineInputBorder()),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _contactPhoneController,
+              decoration: const InputDecoration(labelText: 'Contact phone (optional)', border: OutlineInputBorder()),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 16),
+            CheckboxListTile(
+              value: _acceptMonetary,
+              onChanged: (v) => setState(() => _acceptMonetary = v ?? false),
+              title: const Text('Accept monetary donations?'),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+            ),
+            if (_acceptMonetary) ...[
+              const SizedBox(height: 12),
+              const Text('Payment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _qrCodeUrlController,
+                decoration: const InputDecoration(labelText: 'QR Code URL (optional)', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _bank,
+                decoration: const InputDecoration(labelText: 'Bank', hintText: 'Select Bank', border: OutlineInputBorder()),
+                items: _bankOptions
+                    .map((b) => DropdownMenuItem(value: b['value'], child: Text(b['label']!)))
+                    .toList(),
+                onChanged: (v) => setState(() => _bank = v),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _accountNameController,
+                decoration: const InputDecoration(labelText: 'Account name', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _accountNumberController,
+                decoration: const InputDecoration(labelText: 'Account number', border: OutlineInputBorder()),
+                keyboardType: TextInputType.number,
+              ),
+            ],
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _saving ? null : _submit,

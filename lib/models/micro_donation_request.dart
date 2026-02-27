@@ -39,6 +39,8 @@ class MicroDonationRequest {
     this.bank,
     this.accountName,
     this.accountNumber,
+    this.contactEmail,
+    this.contactPhone,
   });
 
   final String id;
@@ -62,6 +64,8 @@ class MicroDonationRequest {
   final String? bank;
   final String? accountName;
   final String? accountNumber;
+  final String? contactEmail;
+  final String? contactPhone;
 
   factory MicroDonationRequest.fromFirestore(DocumentSnapshot doc) {
     final m = doc.data() as Map<String, dynamic>? ?? {};
@@ -89,6 +93,8 @@ class MicroDonationRequest {
       bank: m['bank'] as String?,
       accountName: m['accountName'] as String?,
       accountNumber: m['accountNumber'] as String?,
+      contactEmail: m['contactEmail'] as String?,
+      contactPhone: m['contactPhone'] as String?,
     );
   }
 
@@ -148,6 +154,8 @@ class MicroDonationRequest {
       'bank': bank,
       'accountName': accountName,
       'accountNumber': accountNumber,
+      'contactEmail': contactEmail,
+      'contactPhone': contactPhone,
     };
   }
 }

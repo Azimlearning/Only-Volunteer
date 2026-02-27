@@ -560,34 +560,21 @@ class _AidFinderScreenState extends State<AidFinderScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    FilterChip(
-                      label: const Text('All'),
-                      selected: _category == null,
-                      selectedColor: figmaOrange.withOpacity(0.2),
-                      checkmarkColor: figmaOrange,
-                      onSelected: (_) {
-                        setState(() => _category = null);
-                        _load();
-                      },
-                    ),
-                    ..._categories.where((c) => c != 'All').map((c) {
-                      final isSelected = _category == c;
-                      return FilterChip(
-                        label: Text(c),
-                        selected: isSelected,
-                        selectedColor: figmaOrange.withOpacity(0.2),
-                        checkmarkColor: figmaOrange,
-                        onSelected: (_) {
-                          setState(() => _category = isSelected ? null : c);
-                          _load();
-                        },
-                      );
-                    }),
+                DropdownButtonFormField<String?>(
+                  value: _category,
+                  decoration: const InputDecoration(
+                    labelText: 'Category',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(value: null, child: Text('All')),
+                    ..._categories.where((c) => c != 'All').map((c) => DropdownMenuItem<String?>(value: c, child: Text(c))),
                   ],
+                  onChanged: (v) {
+                    setState(() => _category = v);
+                    _load();
+                  },
                 ),
               ],
             ),

@@ -51,31 +51,6 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Banner image
-              if (d.bannerUrl != null && d.bannerUrl!.isNotEmpty) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: d.bannerUrl!,
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      height: 200,
-                      color: Colors.grey[200],
-                      child: Center(
-                        child: CircularProgressIndicator(color: figmaOrange),
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) => Container(
-                      height: 200,
-                      color: Colors.grey[200],
-                      child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey[400]),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
               // Title
               Text(
                 d.title,
@@ -226,6 +201,121 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
                 ),
               ],
               const SizedBox(height: 24),
+              // Payment method
+              const Text(
+                'Payment method',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: figmaBlack),
+              ),
+              const SizedBox(height: 12),
+              if (d.qrCodeUrl != null && d.qrCodeUrl!.isNotEmpty) ...[
+                const Text(
+                  'Scan QR Code to Donate',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Center(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: CachedNetworkImage(
+                        imageUrl: d.qrCodeUrl!,
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => SizedBox(
+                          width: 200,
+                          height: 200,
+                          child: Center(child: CircularProgressIndicator(color: figmaOrange)),
+                        ),
+                        errorWidget: (_, __, ___) => Icon(Icons.qr_code, size: 64, color: Colors.grey[400]),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+              if (d.bank != null || d.accountName != null || d.accountNumber != null) ...[
+                const Text(
+                  'Bank Transfer Details',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (d.bank != null) ...[
+                        _BankDetailRow(label: 'Bank', value: _formatBankName(d.bank!)),
+                        const SizedBox(height: 12),
+                      ],
+                      if (d.accountName != null) ...[
+                        _BankDetailRow(label: 'Account Name', value: d.accountName!),
+                        const SizedBox(height: 12),
+                      ],
+                      if (d.accountNumber != null) ...[
+                        _BankDetailRow(label: 'Account Number', value: d.accountNumber!),
+                      ],
+                    ],
+                  ),
+                ),
+                if (d.accountNumber != null) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: d.accountNumber!));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Account number copied: ${d.accountNumber}'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('Copy Account Number'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: figmaOrange,
+                      side: BorderSide(color: figmaOrange),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+              ],
+              if ((d.qrCodeUrl == null || d.qrCodeUrl!.isEmpty) &&
+                  (d.bank == null && d.accountName == null && d.accountNumber == null)) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.amber[700]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Payment details not available. Please contact the organization directly.',
+                          style: TextStyle(color: Colors.amber[900], fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
               // Donate button
               FilledButton.icon(
                 onPressed: () {
@@ -449,6 +539,11 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
     }
   }
 
+  String _driveCategoryLabel(DonationDrive d) {
+    if (d.campaignCategory != null) return _campaignCategoryLabel(d.campaignCategory!);
+    return (d.category ?? '').replaceAll('_', ' ').toUpperCase();
+  }
+
   List<DonationDrive> _getPaginatedDrives(List<DonationDrive> drives) {
     final start = _currentPage * _itemsPerPage;
     final end = (start + _itemsPerPage).clamp(0, drives.length);
@@ -507,60 +602,36 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             color: Colors.grey[50],
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilterChip(
-                  label: const Text('All'),
-                  selected: _categoryFilter == null && _campaignFilter == null,
-                  selectedColor: figmaOrange.withOpacity(0.2),
-                  checkmarkColor: figmaOrange,
-                  onSelected: (_) => setState(() { _categoryFilter = null; _campaignFilter = null; }),
-                ),
-                FilterChip(
-                  label: const Text('Disaster Relief'),
-                  selected: _campaignFilter == 'disasterRelief',
-                  selectedColor: figmaOrange.withOpacity(0.2),
-                  checkmarkColor: figmaOrange,
-                  onSelected: (_) => setState(() => _campaignFilter = _campaignFilter == 'disasterRelief' ? null : 'disasterRelief'),
-                ),
-                FilterChip(
-                  label: const Text('Medical & Health'),
-                  selected: _campaignFilter == 'medicalHealth',
-                  selectedColor: figmaOrange.withOpacity(0.2),
-                  checkmarkColor: figmaOrange,
-                  onSelected: (_) => setState(() => _campaignFilter = _campaignFilter == 'medicalHealth' ? null : 'medicalHealth'),
-                ),
-                FilterChip(
-                  label: const Text('Community Infrastructure'),
-                  selected: _campaignFilter == 'communityInfrastructure',
-                  selectedColor: figmaOrange.withOpacity(0.2),
-                  checkmarkColor: figmaOrange,
-                  onSelected: (_) => setState(() => _campaignFilter = _campaignFilter == 'communityInfrastructure' ? null : 'communityInfrastructure'),
-                ),
-                FilterChip(
-                  label: const Text('Sustained Support'),
-                  selected: _campaignFilter == 'sustainedSupport',
-                  selectedColor: figmaOrange.withOpacity(0.2),
-                  checkmarkColor: figmaOrange,
-                  onSelected: (_) => setState(() => _campaignFilter = _campaignFilter == 'sustainedSupport' ? null : 'sustainedSupport'),
-                ),
-                FilterChip(
-                  label: const Text('Disaster relief'),
-                  selected: _categoryFilter == 'disaster_relief',
-                  selectedColor: figmaOrange.withOpacity(0.2),
-                  checkmarkColor: figmaOrange,
-                  onSelected: (_) => setState(() => _categoryFilter = _categoryFilter == 'disaster_relief' ? null : 'disaster_relief'),
-                ),
-                FilterChip(
-                  label: const Text('Community support'),
-                  selected: _categoryFilter == 'community_support',
-                  selectedColor: figmaOrange.withOpacity(0.2),
-                  checkmarkColor: figmaOrange,
-                  onSelected: (_) => setState(() => _categoryFilter = _categoryFilter == 'community_support' ? null : 'community_support'),
-                ),
+            child: DropdownButtonFormField<String?>(
+              value: _campaignFilter ?? _categoryFilter ?? 'all',
+              decoration: const InputDecoration(
+                labelText: 'Category',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'all', child: Text('All')),
+                DropdownMenuItem(value: 'disasterRelief', child: Text('Disaster Relief')),
+                DropdownMenuItem(value: 'medicalHealth', child: Text('Medical & Health')),
+                DropdownMenuItem(value: 'communityInfrastructure', child: Text('Community Infrastructure')),
+                DropdownMenuItem(value: 'sustainedSupport', child: Text('Sustained Support')),
+                DropdownMenuItem(value: 'disaster_relief', child: Text('Disaster relief')),
+                DropdownMenuItem(value: 'community_support', child: Text('Community support')),
               ],
+              onChanged: (v) {
+                setState(() {
+                  if (v == null || v == 'all') {
+                    _campaignFilter = null;
+                    _categoryFilter = null;
+                  } else if (v == 'disaster_relief' || v == 'community_support') {
+                    _categoryFilter = v;
+                    _campaignFilter = null;
+                  } else {
+                    _campaignFilter = v;
+                    _categoryFilter = null;
+                  }
+                });
+              },
             ),
           ),
           Expanded(
@@ -606,155 +677,39 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
                 }
                 final paginatedDrives = _getPaginatedDrives(drives);
                 final totalPages = _getTotalPages(drives.length);
+                final rowCount = (paginatedDrives.length / 2).ceil();
                 return Column(
                   children: [
                     Expanded(
-                      child: GridView.builder(
-                        padding: const EdgeInsets.all(20),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          crossAxisSpacing: 20,
-                          mainAxisSpacing: 20,
-                          childAspectRatio: 0.55,
-                        ),
-                        itemCount: paginatedDrives.length,
-                        itemBuilder: (_, i) {
-                          final d = paginatedDrives[i];
-                          final progress = (d.goalAmount != null && d.goalAmount! > 0)
-                              ? (d.raisedAmount / d.goalAmount!).clamp(0.0, 1.0)
-                              : 0.0;
-                          return Card(
-                            clipBehavior: Clip.antiAlias,
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            child: InkWell(
-                              onTap: () => _showDriveDetail(d),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Image
-                                  Expanded(
-                                    flex: 5,
-                                    child: d.bannerUrl != null && d.bannerUrl!.isNotEmpty
-                                        ? CachedNetworkImage(
-                                            imageUrl: d.bannerUrl!,
-                                            width: double.infinity,
-                                            fit: BoxFit.cover,
-                                            placeholder: (_, __) => Container(
-                                              color: Colors.grey[200],
-                                              child: const Center(child: CircularProgressIndicator()),
-                                            ),
-                                            errorWidget: (_, __, ___) => Container(
-                                              color: Colors.grey[200],
-                                              child: Icon(Icons.image, size: 30, color: Colors.grey[400]),
-                                            ),
-                                          )
-                                        : Container(
-                                            color: Colors.grey[200],
-                                            child: Icon(Icons.image, size: 30, color: Colors.grey[400]),
-                                          ),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: rowCount,
+                        itemBuilder: (_, rowIndex) {
+                          final leftIndex = rowIndex * 2;
+                          final rightIndex = leftIndex + 1;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _DriveCard(
+                                    drive: paginatedDrives[leftIndex],
+                                    categoryLabel: _driveCategoryLabel(paginatedDrives[leftIndex]),
+                                    onTap: () => _showDriveDetail(paginatedDrives[leftIndex]),
                                   ),
-                                  // Content
-                                  Expanded(
-                                    flex: 2,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(10),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            d.title,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: figmaBlack,
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          if (d.description != null) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              d.description!,
-                                              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                          if (d.ngoName != null) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'By ${d.ngoName}',
-                                              style: TextStyle(fontSize: 9, color: Colors.grey[600]),
-                                            ),
-                                          ],
-                                          const Spacer(),
-                                          // Progress bar
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(4),
-                                            child: LinearProgressIndicator(
-                                              value: progress,
-                                              minHeight: 4,
-                                              backgroundColor: Colors.grey[200],
-                                              valueColor: const AlwaysStoppedAnimation(figmaOrange),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Raised: RM ${d.raisedAmount.toStringAsFixed(0)} / RM ${d.goalAmount?.toStringAsFixed(0) ?? "—"}',
-                                            style: TextStyle(fontSize: 9, color: Colors.grey[600]),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          // Action buttons row
-                                          Row(
-                                            children: [
-                                              // Message button
-                                              IconButton(
-                                                onPressed: () {
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    const SnackBar(content: Text('Message feature coming soon')),
-                                                  );
-                                                },
-                                                icon: Container(
-                                                  padding: const EdgeInsets.all(4),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white,
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    border: Border.all(color: figmaOrange.withOpacity(0.3)),
-                                                  ),
-                                                  child: Icon(Icons.chat_bubble_outline, size: 12, color: figmaOrange),
-                                                ),
-                                                padding: EdgeInsets.zero,
-                                                constraints: const BoxConstraints(),
-                                                style: IconButton.styleFrom(
-                                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              // Donate Now button
-                                              Expanded(
-                                                child: FilledButton(
-                                                  onPressed: () => _showDriveDetail(d),
-                                                  style: FilledButton.styleFrom(
-                                                    backgroundColor: figmaOrange,
-                                                    padding: const EdgeInsets.symmetric(vertical: 6),
-                                                    minimumSize: Size.zero,
-                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                  ),
-                                                  child: const Text(
-                                                    'Donate Now',
-                                                    style: TextStyle(fontSize: 10),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: rightIndex < paginatedDrives.length
+                                      ? _DriveCard(
+                                          drive: paginatedDrives[rightIndex],
+                                          categoryLabel: _driveCategoryLabel(paginatedDrives[rightIndex]),
+                                          onTap: () => _showDriveDetail(paginatedDrives[rightIndex]),
+                                        )
+                                      : const SizedBox.shrink(),
+                                ),
+                              ],
                             ),
                           );
                         },
@@ -808,6 +763,149 @@ class _DonationDrivesScreenState extends State<DonationDrivesScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// Card layout per card_ui_recommendations.md: accent bar, no image, meta rows, badge, divider, CTA.
+class _DriveCard extends StatelessWidget {
+  const _DriveCard({
+    required this.drive,
+    required this.categoryLabel,
+    required this.onTap,
+  });
+
+  final DonationDrive drive;
+  final String categoryLabel;
+  final VoidCallback onTap;
+
+  static const _space8 = 8.0;
+  static const _space12 = 12.0;
+  static const _radiusMd = 12.0;
+  static const _radiusLg = 16.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final raisedText = 'Raised RM ${drive.raisedAmount.toStringAsFixed(0)} / RM ${drive.goalAmount?.toStringAsFixed(0) ?? "—"}';
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_radiusLg),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(_radiusLg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(height: 4, color: figmaOrange),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    drive.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: figmaBlack,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: _space12),
+                  if (drive.location != null)
+                    _DriveMetaRow(icon: Icons.location_on_outlined, text: drive.location!),
+                  if (drive.location != null) const SizedBox(height: _space8),
+                  if (drive.ngoName != null)
+                    _DriveMetaRow(icon: Icons.business_outlined, text: 'By ${drive.ngoName}'),
+                  if (drive.ngoName != null) const SizedBox(height: _space8),
+                  _DriveMetaRow(icon: Icons.volunteer_activism, text: raisedText),
+                  if (categoryLabel.isNotEmpty) ...[
+                    const SizedBox(height: _space12),
+                    Wrap(
+                      spacing: _space8,
+                      runSpacing: _space8,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: _space8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3F2FD),
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          child: Text(
+                            categoryLabel,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1565C0),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const Divider(height: 1, thickness: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: SizedBox(
+                height: 44,
+                child: FilledButton(
+                  onPressed: onTap,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: figmaOrange,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(_radiusMd),
+                    ),
+                  ),
+                  child: const Text('Donate', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DriveMetaRow extends StatelessWidget {
+  const _DriveMetaRow({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.4),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

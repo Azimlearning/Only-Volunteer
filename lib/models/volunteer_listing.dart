@@ -27,6 +27,12 @@ class VolunteerListing {
     this.monetaryGoal,
     this.monetaryRaised = 0,
     this.tags = const [],
+    this.contactEmail,
+    this.contactPhone,
+    this.qrCodeUrl,
+    this.bank,
+    this.accountName,
+    this.accountNumber,
   });
 
   final String id;
@@ -53,6 +59,12 @@ class VolunteerListing {
   final double? monetaryRaised;
   /// AI-generated tags for matching (e.g. "Requires Car", "Weekend Only", "Graphic Design").
   final List<String> tags;
+  final String? contactEmail;
+  final String? contactPhone;
+  final String? qrCodeUrl;
+  final String? bank;
+  final String? accountName;
+  final String? accountNumber;
 
   factory VolunteerListing.fromFirestore(DocumentSnapshot doc) {
     final m = doc.data() as Map<String, dynamic>? ?? {};
@@ -82,6 +94,12 @@ class VolunteerListing {
       monetaryGoal: (m['monetaryGoal'] as num?)?.toDouble(),
       monetaryRaised: (m['monetaryRaised'] as num?)?.toDouble() ?? 0,
       tags: List<String>.from(m['tags'] ?? []),
+      contactEmail: m['contactEmail'] as String?,
+      contactPhone: m['contactPhone'] as String?,
+      qrCodeUrl: m['qrCodeUrl'] as String?,
+      bank: m['bank'] as String?,
+      accountName: m['accountName'] as String?,
+      accountNumber: m['accountNumber'] as String?,
     );
   }
 
@@ -109,6 +127,12 @@ class VolunteerListing {
       'monetaryGoal': monetaryGoal,
       'monetaryRaised': monetaryRaised ?? 0,
       'tags': tags,
+      'contactEmail': contactEmail,
+      'contactPhone': contactPhone,
+      'qrCodeUrl': qrCodeUrl,
+      'bank': bank,
+      'accountName': accountName,
+      'accountNumber': accountNumber,
     };
   }
 }
