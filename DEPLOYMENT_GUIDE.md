@@ -13,13 +13,13 @@ npm install
 
 ```bash
 # Get your Gemini API key from https://aistudio.google.com/apikey
-firebase functions:config:set gemini.api_key="AIzaSyChcMzoRiGYKfELhh9TvRsBdFexQFCn2Qs"
+firebase functions:config:set gemini.api_key="<YOUR_GEMINI_API_KEY>"
 
 # GNews API key from https://gnews.io (for news alerts; used by monitorNewsForAlerts + triggerNewsAlerts)
-firebase functions:config:set gnews.api_key="4e5b5b271081946bb976c7e50c719d24"
+firebase functions:config:set gnews.api_key="<YOUR_GNEWS_API_KEY>"
 
 # News API key (alternative)
-firebase functions:config:set newsapi.api_key="195db3eca2e94b3a8efb743882980243"
+firebase functions:config:set newsapi.api_key="<YOUR_NEWSAPI_API_KEY>"
 
 # Your Firebase project ID
 firebase functions:config:set gcp.project_id="onlyvolunteer-e3066"
@@ -130,8 +130,8 @@ firebase deploy --only functions:triggerNewsAlerts,functions:monitorNewsForAlert
 Then set API keys for the deployed functions (required for GNews/NewsAPI + Gemini). **In PowerShell, wrap the env vars in double quotes** so the comma is preserved:
 
 ```powershell
-gcloud functions deploy monitorNewsForAlerts --update-env-vars "GNEWS_API_KEY=4e5b5b271081946bb976c7e50c719d24,GEMINI_API_KEY=AIzaSyChcMzoRiGYKfELhh9TvRsBdFexQFCn2Qs" --region us-central1 --source=functions
-gcloud functions deploy triggerNewsAlerts --update-env-vars "GNEWS_API_KEY=4e5b5b271081946bb976c7e50c719d24,GEMINI_API_KEY=AIzaSyChcMzoRiGYKfELhh9TvRsBdFexQFCn2Qs" --region us-central1 --source=functions
+gcloud functions deploy monitorNewsForAlerts --update-env-vars "GNEWS_API_KEY=<YOUR_GNEWS_API_KEY>,GEMINI_API_KEY=<YOUR_GEMINI_API_KEY>" --region us-central1 --source=functions
+gcloud functions deploy triggerNewsAlerts --update-env-vars "GNEWS_API_KEY=<YOUR_GNEWS_API_KEY>,GEMINI_API_KEY=<YOUR_GEMINI_API_KEY>" --region us-central1 --source=functions
 ```
 
 Check logs for the scheduled run:

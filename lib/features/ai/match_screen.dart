@@ -164,11 +164,12 @@ class _MatchScreenState extends State<MatchScreen> {
     if (text.isEmpty || _loading) return;
     _messageController.clear();
     setState(() {
-      _conversation.add(MapEntry(true, text));
       if (_currentQuestion != null) {
         _conversation.add(MapEntry(false, _currentQuestion!));
         _currentQuestion = null;
       }
+      _conversation.add(MapEntry(true, text));
+
       _loading = true;
     });
     await _fetchNextQuestion();
@@ -233,15 +234,6 @@ class _MatchScreenState extends State<MatchScreen> {
           ),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: figmaOrange.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(kCardRadius),
-                ),
-                child: const Icon(Icons.auto_awesome, color: figmaOrange, size: 28),
-              ),
-              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

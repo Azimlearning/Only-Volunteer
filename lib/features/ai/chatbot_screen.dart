@@ -164,33 +164,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
   }
 
-  Widget _buildUserIdentityBlock() {
-    final name = _appUser?.displayName ?? _appUser?.email ?? 'User';
-    return Center(
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 32,
-            backgroundColor: figmaPurple.withOpacity(0.2),
-            child: Text(
-              name.isNotEmpty ? name[0].toUpperCase() : '?',
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: figmaPurple),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            name,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: figmaBlack),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'New Chat',
-            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   List<Widget> _buildToolResultCards(BuildContext context) {
     final list = <Widget>[
@@ -331,14 +305,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   ],
                 ),
               ),
-              FilledButton(
-                onPressed: _initialized && !_loading ? _startNewChat : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: figmaPurple,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('New chat'),
-              ),
+
             ],
           ),
         ),
@@ -350,10 +317,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: kPagePadding),
                   children: [
                     if (_messages.isEmpty) ...[
-                      if (_appUser != null) ...[
-                        _buildUserIdentityBlock(),
-                        const SizedBox(height: 20),
-                      ],
+
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Text(
@@ -477,12 +441,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              IconButton(
-                onPressed: _loading ? null : _startNewChat,
-                icon: const Icon(Icons.add_circle_outline),
-                color: figmaPurple,
-                tooltip: 'New chat',
-              ),
+
               Expanded(
                 child: TextField(
                   controller: _controller,

@@ -21,6 +21,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   // Keep stream reference stable so refresh/pull-to-refresh does not recreate it
   // (recreating caused the list to briefly disappear when the StreamBuilder re-subscribed).
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _alertsStream;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -52,8 +53,37 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 
   Future<void> _onRefresh() async {
-    if (!mounted) return;
-    await _runAutoGenerate();
+    if (!mounted || _isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    
+    try {
+      final userLocation = _getUserLocation();
+      final result = await triggerNewsAlertsGeneration(userLocation: userLocation);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.ok ? 'Alerts updated successfully' : result.message),
+            backgroundColor: result.ok ? Colors.green : Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to refresh alerts: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
   }
 
   Color _getSeverityColor(String? severity) {
@@ -145,13 +175,23 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       ],
                     ),
                   ),
-                  FilledButton(
-                    onPressed: _onRefresh,
+                  FilledButton.icon(
+                    onPressed: _isRefreshing ? null : _onRefresh,
                     style: FilledButton.styleFrom(
                       backgroundColor: figmaOrange,
                       foregroundColor: Colors.white,
                     ),
-                    child: const Text('Refresh'),
+                    icon: _isRefreshing 
+                        ? const SizedBox(
+                            width: 16, 
+                            height: 16, 
+                            child: CircularProgressIndicator(
+                              color: Colors.white, 
+                              strokeWidth: 2
+                            )
+                          )
+                        : const Icon(Icons.refresh, size: 18),
+                    label: Text(_isRefreshing ? 'Refreshing...' : 'Refresh'),
                   ),
                 ],
               ),

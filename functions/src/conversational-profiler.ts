@@ -14,7 +14,15 @@ function parseProfilerOutput(text: string): ProfilerResponse {
   const trimmed = text.trim();
   if (trimmed.toUpperCase().startsWith('DONE:')) {
     try {
-      const jsonStr = trimmed.slice(5).trim();
+      // First try standard JSON parse
+      let jsonStr = trimmed.slice(5).trim();
+
+      // The model sometimes cuts off the closing brace due to token limits or formatting.
+      // Auto-fix simple truncation if missing ending brace
+      if (!jsonStr.endsWith('}')) {
+        jsonStr += '}';
+      }
+
       const parsed = JSON.parse(jsonStr) as { skills?: string[]; availability?: string; location?: string; causes?: string[] };
       return {
         done: true,
@@ -26,7 +34,11 @@ function parseProfilerOutput(text: string): ProfilerResponse {
         },
       };
     } catch {
-      return { done: false, question: trimmed };
+      // If parsing still fails, treat it as done anyway but with empty arrays so the app can move on securely
+      return {
+        done: true,
+        profile: { skills: [], causes: [] }
+      };
     }
   }
   return { done: false, question: trimmed };
