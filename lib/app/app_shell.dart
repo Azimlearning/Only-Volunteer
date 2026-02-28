@@ -33,25 +33,16 @@ class AppShell extends StatelessWidget {
                       children: [
                         Image.asset(
                           'assets/onlyvolunteer_logo.png',
-                          width: 32,
-                          height: 32,
+                          width: 96,
+                          height: 96,
                           errorBuilder: (context, error, stackTrace) => Container(
-                            width: 32,
-                            height: 32,
+                            width: 96,
+                            height: 96,
                             decoration: BoxDecoration(
                               color: figmaOrange.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.volunteer_activism, size: 20, color: figmaOrange),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'OnlyVolunteer',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            child: const Icon(Icons.volunteer_activism, size: 24, color: figmaOrange),
                           ),
                         ),
                       ],

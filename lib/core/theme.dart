@@ -5,6 +5,16 @@ const Color figmaOrange = Color(0xFFFF691C);
 const Color figmaPurple = Color(0xFF8100DE);
 const Color figmaBlack = Color(0xFF333333);
 
+// Redesign Colors
+const Color appCoral = Color(0xFFFF5C3A);
+const Color appAmber = Color(0xFFFFAB36);
+const Color appCream = Color(0xFFFFF8F3);
+const Color appDark = Color(0xFF1A1208);
+const Color appMid = Color(0xFF5C4A30);
+const Color appMuted = Color(0xFF9B8977);
+const Color appBorder = Color(0xFFE8DDD5);
+const Color appSuccess = Color(0xFF3DAD6B);
+
 // Page layout (Figma-inspired)
 const double kPagePadding = 24.0;
 const double kCardRadius = 12.0;
